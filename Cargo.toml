@@ -1,0 +1,12 @@
+[workspace]
+resolver = "2"
+members = ["crates/nukemichi-wasm"]
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = "z"
+
+# slotmap-careful's safety checks rely on not being over-optimized (from tor-js).
+[profile.release.package.slotmap-careful]
+opt-level = 2

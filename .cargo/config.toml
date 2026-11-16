@@ -1,0 +1,5 @@
+# ring compiles C for wasm32; Apple clang has no wasm32 target.
+# Homebrew: `brew install llvm`. Override with CC_wasm32_unknown_unknown.
+[env]
+CC_wasm32_unknown_unknown = { value = "/opt/homebrew/opt/llvm/bin/clang", force = false }
+AR_wasm32_unknown_unknown = { value = "/opt/homebrew/opt/llvm/bin/llvm-ar", force = false }

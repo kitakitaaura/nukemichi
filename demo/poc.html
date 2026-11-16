@@ -1,0 +1,19 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Nukemichi PoC</title>
+<pre id="log"></pre>
+<script type="module">
+import { createEngine } from '../js/src/engine.js';
+const logEl = document.getElementById('log');
+const logs = [];
+const log = (level, target, msg) => {
+  const line = `${(performance.now() / 1000).toFixed(1)}s [${level}] ${target}: ${msg}`;
+  logs.push(line);
+  if (level !== 'debug' && level !== 'trace') logEl.textContent += line + '\n';
+};
+window.logs = logs;
+window.boot = async (opts) => {
+  window.engine = await createEngine({ log, ...opts });
+  return window.engine.timings;
+};
+</script>

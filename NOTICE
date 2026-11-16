@@ -1,0 +1,21 @@
+Nukemichi includes code derived from these projects:
+
+tor-js (https://github.com/ethereum/tor-js), MIT OR Apache-2.0,
+commit d9d9612d10d3775ff100b70e96a291718191d856.
+  crates/nukemichi-wasm started as a copy of crates/tor-js-wasm. Changes:
+  - snowflake.rs (new): Snowflake client (Turbo Tunnel + KCP + smux v2).
+  - tcp.rs (new): raw TCP / TLS streams for nukemichi.connect().
+  - runtime.rs: routes bridge addresses to Snowflake; ring instead of
+    rustls-rustcrypto for the Tor link TLS.
+  - lib.rs: bridge configuration, connect(), bootstrap status, stats.
+  - tls.rs: ring crypto provider.
+  - KPS gateway support and the fast-bootstrap fetch path are unused.
+  js/src/storage.js is adapted from tor-js src/storage/indexeddb.ts.
+
+Arti (https://gitlab.torproject.org/tpo/core/arti), MIT OR Apache-2.0,
+used unmodified from the voltrevo/arti fork (Arti 2.7.0 plus wasm storage
+and time fixes), pinned at 2527494a8961a7522a36f96d9c0048096f657c88.
+
+The Snowflake protocol constants and framing follow the Snowflake client
+(https://gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake),
+BSD-3-Clause. No Snowflake code is copied.
