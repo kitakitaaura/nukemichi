@@ -55,7 +55,34 @@ fn has_header(headers: &HashMap<String, String>, name: &str) -> bool {
 const MAX_HEADER_SIZE: usize = 64 * 1024;
 
 /// Type-erased async reader for the response body stream.
-pub type BoxedReader = Box<dyn futures::io::AsyncRead + Unpin>;
+/// A connection we can send a request on and read the response from.
+pub trait Conn: futures::io::AsyncRead + futures::io::AsyncWrite + Unpin {}
+impl<T: futures::io::AsyncRead + futures::io::AsyncWrite + Unpin> Conn for T {}
+
+pub type BoxedReader = Box<dyn Conn>;
+
+/// Callback that receives a connection whose response was fully read and
+/// which the server allows to be reused (keep-alive pool).
+pub type OnReusable = Box<dyn FnOnce(BoxedReader)>;
+
+/// Placeholder left behind when a connection is handed back to the pool.
+struct Spent;
+impl futures::io::AsyncRead for Spent {
+    fn poll_read(self: Pin<&mut Self>, _: &mut std::task::Context<'_>, _: &mut [u8]) -> std::task::Poll<std::io::Result<usize>> {
+        std::task::Poll::Ready(Ok(0))
+    }
+}
+impl futures::io::AsyncWrite for Spent {
+    fn poll_write(self: Pin<&mut Self>, _: &mut std::task::Context<'_>, _: &[u8]) -> std::task::Poll<std::io::Result<usize>> {
+        std::task::Poll::Ready(Err(std::io::ErrorKind::BrokenPipe.into()))
+    }
+    fn poll_flush(self: Pin<&mut Self>, _: &mut std::task::Context<'_>) -> std::task::Poll<std::io::Result<()>> {
+        std::task::Poll::Ready(Ok(()))
+    }
+    fn poll_close(self: Pin<&mut Self>, _: &mut std::task::Context<'_>) -> std::task::Poll<std::io::Result<()>> {
+        std::task::Poll::Ready(Ok(()))
+    }
+}
 
 /// How the response body is framed.
 #[derive(Debug, PartialEq, Eq)]
@@ -84,6 +111,8 @@ pub struct FetchHeadersResult {
 /// chunk-by-chunk reading (`read_chunk()`) and full body reading (`read_all()`).
 pub struct BodyReader {
     stream: BoxedReader,
+    /// Called with the connection once the body is complete, if reusable.
+    on_reusable: Option<OnReusable>,
     framing: BodyFraming,
     /// Bytes already read past \r\n\r\n during header parsing.
     buffer: Vec<u8>,
@@ -99,6 +128,7 @@ impl BodyReader {
     pub fn new(stream: BoxedReader, framing: BodyFraming, overflow: Vec<u8>) -> Self {
         Self {
             stream,
+            on_reusable: None,
             framing,
             buffer: overflow,
             done: false,
@@ -108,8 +138,25 @@ impl BodyReader {
         }
     }
 
+    /// Hand the connection to `f` once the body has been read completely.
+    pub fn on_reusable(&mut self, f: OnReusable) {
+        if !matches!(self.framing, BodyFraming::UntilEof) {
+            self.on_reusable = Some(f);
+        }
+    }
+
     /// Read the next chunk of decoded body bytes. Returns `None` at EOF.
     pub async fn read_chunk(&mut self) -> Result<Option<Vec<u8>>, JsTorError> {
+        let r = self.read_chunk_inner().await;
+        if matches!(r, Ok(None)) && self.done && self.buffer.is_empty() {
+            if let Some(f) = self.on_reusable.take() {
+                f(std::mem::replace(&mut self.stream, Box::new(Spent)));
+            }
+        }
+        r
+    }
+
+    async fn read_chunk_inner(&mut self) -> Result<Option<Vec<u8>>, JsTorError> {
         if self.done {
             return Ok(None);
         }
@@ -378,9 +425,7 @@ pub fn build_request_head(
     if !has_header(headers, "Accept") {
         request.push_str("Accept: */*\r\n");
     }
-    if !has_header(headers, "Connection") {
-        request.push_str("Connection: close\r\n");
-    }
+    // HTTP/1.1 connections are persistent by default; Nukemichi pools them.
 
     // Add custom headers (reject any with CR/LF to prevent header injection).
     // Skip Host and Content-Length — we set these ourselves.
@@ -617,6 +662,7 @@ where
 /// The returned `FetchHeadersResult` contains parsed headers and a `BodyReader`
 /// that can be used to read the body asynchronously.
 #[expect(clippy::too_many_arguments, reason = "HTTP fetch requires many parameters")]
+#[allow(dead_code, reason = "kept for the codec tests; lib.rs uses fetch_on_conn")]
 pub async fn fetch_headers<S>(
     stream: S,
     url: &Url,
@@ -678,6 +724,30 @@ where
             body_reader: BodyReader::new(reader, framing, overflow),
         })
     }
+}
+
+/// Send a request on an established (already TLS-wrapped, if HTTPS)
+/// connection and resolve once the response head arrives. `keep_alive` in the
+/// result says whether the server allows the connection to be reused.
+pub async fn fetch_on_conn(
+    mut conn: BoxedReader,
+    url: &Url,
+    method: Method,
+    headers: HashMap<String, String>,
+    body: RequestBody,
+) -> Result<(FetchHeadersResult, bool), JsTorError> {
+    let head = build_request_head(url, &method, &headers, &body)?;
+    write_request(&mut conn, &head, body).await?;
+    let (status, resp_headers, framing, overflow) = read_response_headers(&mut conn, &method).await?;
+    info!("Received response headers: status={}", status);
+    let close = resp_headers.iter().any(|(k, v)| {
+        k.eq_ignore_ascii_case("connection") && v.split(',').any(|t| t.trim().eq_ignore_ascii_case("close"))
+    });
+    let keep_alive = !close && framing != BodyFraming::UntilEof;
+    Ok((
+        FetchHeadersResult { status, headers: resp_headers, body_reader: BodyReader::new(conn, framing, overflow) },
+        keep_alive,
+    ))
 }
 
 /// Find the position of a subsequence in a byte slice

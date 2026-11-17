@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use arti_client::{IsolationToken, StreamPrefs, TorClient as ArtiTorClient};
+use arti_client::TorClient as ArtiTorClient;
 use futures::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, SinkExt, StreamExt};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
@@ -66,18 +66,12 @@ pub async fn connect(
     port: u16,
     tls: bool,
     tls_config: Arc<futures_rustls::rustls::ClientConfig>,
-    isolation: Option<IsolationToken>,
+    slot: &crate::conn::Slot,
 ) -> Result<JsValue, JsValue> {
     tracing::info!("Opening TCP stream to {}:{} via Tor (tls={})", host, port, tls);
-    let stream = match isolation {
-        Some(token) => {
-            let mut prefs = StreamPrefs::new();
-            prefs.set_isolation(token);
-            client.connect_with_prefs((host, port), &prefs).await
-        }
-        None => client.connect((host, port)).await,
-    }
-    .map_err(|e| JsTorError::connect_failed(&e).into_js_value())?;
+    let stream = crate::conn::open_stream(client, host, port, slot)
+        .await
+        .map_err(|e| e.into_js_value())?;
 
     if !tls {
         return to_js_pair(stream);

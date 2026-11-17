@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nukemichi</title>
+<style>
+  :root {
+    --bg: #fbfaf7; --fg: #1d1c1a; --muted: #6b675f; --line: #dedad2;
+    --accent: #7a3e1d; --ok: #2f6b3a; --bad: #9b2c2c; --code: #f1eee8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #161513; --fg: #ebe8e2; --muted: #9c978d; --line: #34312c; --accent: #e0a179; --ok: #8fc79a; --bad: #e59a9a; --code: #22201d; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 28px; margin: 0 0 4px; }
+  h1 span { color: var(--muted); font-weight: 400; font-size: 18px; margin-left: 8px; }
+  p.lead { color: var(--muted); margin: 0 0 20px; }
+  section { border-top: 1px solid var(--line); padding: 16px 0; }
+  h2 { font-size: 16px; margin: 0 0 8px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  input, select, button { font: inherit; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); }
+  input[type=text] { flex: 1 1 280px; min-width: 0; }
+  button { cursor: pointer; background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  button:disabled { opacity: .5; cursor: default; }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  pre { background: var(--code); padding: 10px; border-radius: 6px; overflow: auto; max-height: 320px; margin: 8px 0 0; font-size: 13px; white-space: pre-wrap; word-break: break-word; }
+  .status { font-variant-numeric: tabular-nums; }
+  .ok { color: var(--ok); } .bad { color: var(--bad); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Nukemichi <span>抜け道</span></h1>
+  <p class="lead">CORS-free HTTP and raw TCP from this page, through Tor (Arti in wasm, reached over Snowflake).</p>
+
+  <section>
+    <h2>1. Connect to Tor</h2>
+    <div class="row">
+      <label>Carrier
+        <select id="transport">
+          <option value="webrtc">Snowflake via WebRTC proxy</option>
+          <option value="websocket">Snowflake bridge via WebSocket</option>
+        </select>
+      </label>
+      <label><input type="checkbox" id="worker" checked> in a worker</label>
+      <button id="start">Start</button>
+    </div>
+    <p class="status" id="status" aria-live="polite">Not started.</p>
+  </section>
+
+  <section>
+    <h2>2. fetch()</h2>
+    <div class="row">
+      <input type="text" id="url" value="https://check.torproject.org/api/ip" aria-label="URL">
+      <button id="go" disabled>Fetch through Tor</button>
+      <button id="plain" disabled>Plain fetch</button>
+    </div>
+    <pre id="fetchOut">–</pre>
+  </section>
+
+  <section>
+    <h2>3. Raw TCP</h2>
+    <div class="row">
+      <input type="text" id="tcpHost" value="tcpbin.com" aria-label="Host">
+      <input type="text" id="tcpPort" value="4242" aria-label="Port" style="flex:0 0 80px">
+      <label><input type="checkbox" id="tcpTls"> TLS</label>
+      <input type="text" id="tcpMsg" value="hello from nukemichi" aria-label="Line to send">
+      <button id="tcpGo" disabled>Send line</button>
+    </div>
+    <pre id="tcpOut">–</pre>
+  </section>
+
+  <section>
+    <h2>Log</h2>
+    <pre id="log"></pre>
+  </section>
+</main>
+<script type="module">
+import { createClient } from '../js/src/index.js';
+const $ = (id) => document.getElementById(id);
+let client = null;
+const logLines = [];
+const log = (level, target, msg) => {
+  logLines.push(`${(performance.now() / 1000).toFixed(1)}s ${level} ${target}: ${msg}`);
+  if (logLines.length > 200) logLines.shift();
+  $('log').textContent = logLines.join('\n');
+};
+
+$('start').onclick = async () => {
+  $('start').disabled = true;
+  $('status').textContent = 'Bootstrapping…';
+  const t0 = performance.now();
+  client = createClient({ transport: $('transport').value, worker: $('worker').checked, log, logLevel: 'info' });
+  try {
+    const t = await client.ready();
+    $('status').innerHTML = `<span class="ok">Ready</span> in ${((performance.now() - t0) / 1000).toFixed(1)} s.`;
+    for (const id of ['go', 'plain', 'tcpGo']) $(id).disabled = false;
+  } catch (e) {
+    $('status').innerHTML = `<span class="bad">Failed:</span> ${e.message}`;
+    $('start').disabled = false;
+  }
+};
+
+const show = async (res, t0) => {
+  const text = await res.text();
+  return `${res.status} in ${Math.round(performance.now() - t0)} ms, ${text.length} chars` +
+    `${res.redirected ? `, redirected to ${res.url}` : ''}\n` +
+    [...res.headers].map(([k, v]) => `${k}: ${v}`).join('\n') + '\n\n' + text.slice(0, 4000);
+};
+
+$('go').onclick = async () => {
+  const t0 = performance.now();
+  $('fetchOut').textContent = 'Fetching…';
+  try { $('fetchOut').textContent = await show(await client.fetch($('url').value), t0); }
+  catch (e) { $('fetchOut').textContent = `Error: ${e.message}`; }
+};
+$('plain').onclick = async () => {
+  const t0 = performance.now();
+  try { $('fetchOut').textContent = await show(await fetch($('url').value), t0); }
+  catch (e) { $('fetchOut').textContent = `Plain fetch() failed, as expected without CORS: ${e.name}: ${e.message}`; }
+};
+
+$('tcpGo').onclick = async () => {
+  const t0 = performance.now();
+  $('tcpOut').textContent = 'Connecting…';
+  try {
+    const s = await client.connect($('tcpHost').value, Number($('tcpPort').value), { tls: $('tcpTls').checked });
+    const w = s.writable.getWriter();
+    const r = s.readable.getReader();
+    await w.write(new TextEncoder().encode($('tcpMsg').value + '\n'));
+    const { value } = await r.read();
+    $('tcpOut').textContent = `Got back in ${Math.round(performance.now() - t0)} ms:\n${new TextDecoder().decode(value)}`;
+    await w.close().catch(() => {});
+  } catch (e) { $('tcpOut').textContent = `Error: ${e.message}`; }
+};
+</script>
+</body>
+</html>

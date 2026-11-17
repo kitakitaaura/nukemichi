@@ -87,6 +87,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 hex = "0.4"
 kcp = "0.6"
+brotli-decompressor = "4"
 
 # Random number generation — wasm32 only. These MUST be target-gated: in the
 # workspace, Cargo feature unification would otherwise force the JS randomness

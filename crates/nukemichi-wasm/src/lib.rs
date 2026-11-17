@@ -14,6 +14,8 @@
 // is covered by a plain `cargo test` instead of needing a browser/Node harness.
 #![cfg(any(target_arch = "wasm32", test))]
 
+mod conn;
+mod decode;
 mod error;
 mod fast_bootstrap;
 mod fetch;
@@ -33,7 +35,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use arti_client::config::CfgPath;
-use arti_client::{IsolationToken, StreamPrefs, TorClient as ArtiTorClient, TorClientConfig};
+use arti_client::{TorClient as ArtiTorClient, TorClientConfig};
 use isolation::{IsolationGroups, KeyError, MAX_KEY_LEN};
 use serde::Deserialize;
 use crate::runtime::WasmRuntime;
@@ -295,7 +297,9 @@ pub struct TorClient {
     tls: tls::TlsConfigs,
     /// `anonOptions.isolationKey` → Arti isolation group, with the key's own TLS
     /// session cache (see isolation.rs, tls.rs).
-    isolation: RefCell<IsolationGroups<Arc<futures_rustls::rustls::ClientConfig>>>,
+    isolation: RefCell<IsolationGroups<(Arc<futures_rustls::rustls::ClientConfig>, conn::Slot)>>,
+    /// Circuit slot for requests without an isolation key.
+    default_slot: conn::Slot,
 }
 
 #[wasm_bindgen]
@@ -331,9 +335,9 @@ impl TorClient {
 
         // Resolve the isolation group now: the map lives on this client, and the
         // future below must not borrow `self`.
-        let (isolation, tls_config) = match isolation_key_from_init(&init) {
-            Ok(Some(key)) => match self.isolation.borrow_mut().group_for(&key, || self.tls.for_new_key()) {
-                Ok(group) => (Some(group.token), group.state),
+        let (slot, tls_config) = match isolation_key_from_init(&init) {
+            Ok(Some(key)) => match self.isolation.borrow_mut().group_for(&key, || (self.tls.for_new_key(), conn::Slot::new())) {
+                Ok(group) => (group.state.1, group.state.0),
                 Err(e) => {
                     let message = match e {
                         KeyError::Empty => "anonOptions.isolationKey must not be empty".to_string(),
@@ -344,12 +348,12 @@ impl TorClient {
                     });
                 }
             },
-            Ok(None) => (None, self.tls.unkeyed()),
+            Ok(None) => (self.default_slot.clone(), self.tls.unkeyed()),
             Err(e) => return wasm_bindgen_futures::future_to_promise(async move { Err(e) }),
         };
 
         wasm_bindgen_futures::future_to_promise(async move {
-            fetch_impl(&client, &url, init, tls_config, isolation).await
+            fetch_impl(&client, &url, init, tls_config, slot).await
         })
     }
 
@@ -403,20 +407,20 @@ impl TorClient {
                 });
             }
         };
-        let (isolation, tls_config) = match isolation_key_from_init(&init) {
-            Ok(Some(key)) => match self.isolation.borrow_mut().group_for(&key, || self.tls.for_new_key()) {
-                Ok(group) => (Some(group.token), group.state),
+        let (slot, tls_config) = match isolation_key_from_init(&init) {
+            Ok(Some(key)) => match self.isolation.borrow_mut().group_for(&key, || (self.tls.for_new_key(), conn::Slot::new())) {
+                Ok(group) => (group.state.1, group.state.0),
                 Err(_) => {
                     return wasm_bindgen_futures::future_to_promise(async move {
                         Err(JsTorError::new("INVALID_OPTIONS", "validation", "bad isolationKey".to_string(), false).into_js_value())
                     });
                 }
             },
-            Ok(None) => (None, self.tls.unkeyed()),
+            Ok(None) => (self.default_slot.clone(), self.tls.unkeyed()),
             Err(e) => return wasm_bindgen_futures::future_to_promise(async move { Err(e) }),
         };
         wasm_bindgen_futures::future_to_promise(async move {
-            tcp::connect(&client, &host, port, tls, tls_config, isolation).await
+            tcp::connect(&client, &host, port, tls, tls_config, &slot).await
         })
     }
 
@@ -433,6 +437,7 @@ impl TorClient {
     #[wasm_bindgen(js_name = close)]
     pub fn close(&mut self) -> js_sys::Promise {
         self.inner = None;
+        conn::pool_clear();
         wasm_bindgen_futures::future_to_promise(async {
             info!("TorClient closed");
             Ok(JsValue::undefined())
@@ -525,6 +530,7 @@ async fn create_client(options: TorClientOptions) -> Result<TorClient, JsValue> 
         inner: Some(tor_client),
         tls: tls::TlsConfigs::new(make_tls_config()),
         isolation: RefCell::new(IsolationGroups::default()),
+        default_slot: conn::Slot::new(),
     })
 }
 
@@ -576,7 +582,7 @@ async fn fetch_impl(
     url_str: &str,
     init: JsValue,
     tls_config: Arc<futures_rustls::rustls::ClientConfig>,
-    isolation: Option<IsolationToken>,
+    slot: conn::Slot,
 ) -> Result<JsValue, JsValue> {
     // Parse URL
     let url = url::Url::parse(url_str)
@@ -633,30 +639,58 @@ async fn fetch_impl(
     // Log only the origin: the full URL can carry credentials or API keys.
     info!("Fetching {}://{}:{} via Tor", url.scheme(), host, port);
 
-    // Connect through Tor (circuit building can take several seconds)
-    debug!("Connecting to {}:{}...", host, port);
-    let stream = abortable(signal.as_ref(), async {
-        match isolation {
-            Some(token) => {
-                let mut prefs = StreamPrefs::new();
-                prefs.set_isolation(token);
-                client.connect_with_prefs((host, port), &prefs).await
+    // Reuse a pooled keep-alive connection when the request can be replayed
+    // (a streamed body cannot); otherwise open one, retrying on new circuits.
+    let key = conn::pool_key(is_https, host, port, &slot);
+    let replayable = !matches!(request_body, fetch::RequestBody::Stream(_));
+    let mut request_body = Some(request_body);
+    let mut tries = 0;
+    let (result, keep_alive) = loop {
+        tries += 1;
+        let pooled = if replayable && tries == 1 { conn::pool_take(&key) } else { None };
+        let reused = pooled.is_some();
+        let c = match pooled {
+            Some(c) => {
+                debug!("Reusing pooled connection to {}:{}", host, port);
+                c
             }
-            None => client.connect((host, port)).await,
+            None => abortable(signal.as_ref(), async {
+                conn::open_conn(client, host, port, is_https, &slot, tls_config.clone())
+                    .await
+                    .map_err(|e| e.into_js_value())
+            })
+            .await?,
+        };
+        let body = if reused {
+            // Keep a copy in case the pooled connection turns out to be stale.
+            match request_body.as_ref().unwrap() {
+                fetch::RequestBody::Bytes(b) => fetch::RequestBody::Bytes(b.clone()),
+                _ => fetch::RequestBody::None,
+            }
+        } else {
+            request_body.take().unwrap_or(fetch::RequestBody::None)
+        };
+        let r = abortable(signal.as_ref(), async {
+            fetch::fetch_on_conn(c, &url, method.clone(), headers.clone(), body)
+                .await
+                .map_err(|e| e.into_js_value())
+        })
+        .await;
+        match r {
+            Ok(v) => break v,
+            // A pooled connection the server already closed: open a new one.
+            Err(_) if reused => {
+                debug!("Pooled connection was stale; opening a new one");
+                continue;
+            }
+            Err(e) => return Err(e),
         }
-        .map_err(|e| JsTorError::connect_failed(&e).into_js_value())
-    })
-    .await?;
-
-    debug!("Connected, making HTTP request...");
-
-    // Perform the HTTP request — resolves as soon as headers arrive
-    let result = abortable(signal.as_ref(), async {
-        fetch::fetch_headers(stream, &url, method, headers, request_body, is_https, host, Some(tls_config))
-            .await
-            .map_err(|e| e.into_js_value())
-    })
-    .await?;
+    };
+    let mut result = result;
+    if keep_alive {
+        let key = conn::pool_key(is_https, host, port, &slot);
+        result.body_reader.on_reusable(Box::new(move |c| conn::pool_put(key, c)));
+    }
 
     // Build web_sys::Headers from the parsed headers
     let js_headers = web_sys::Headers::new()

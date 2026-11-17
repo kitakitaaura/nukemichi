@@ -2,11 +2,47 @@
 // Snowflake, and exposes fetch/connect. Runs in a dedicated worker (default)
 // or on the main thread.
 
-import init, { init as initLogging, setLogCallback, setLogLevel, TorClient, TorClientOptions, snowflakeStats } from '../pkg/nukemichi.js';
+import init, { init as initLogging, setLogCallback, setLogLevel, TorClient, TorClientOptions, snowflakeStats, BrotliDecoder } from '../pkg/nukemichi.js';
 import { BRIDGES, makeConnectFn, openDataChannel } from './snowflake.js';
 import { IndexedDBStorage, MemoryStorage } from './storage.js';
 
 let wasmReady = null;
+
+// --- content decoding (runs where the wasm lives: the worker by default) ----
+
+function nativeFormat(...names) {
+  for (const n of names) { try { new DecompressionStream(n); return n; } catch {} }
+  return null;
+}
+const NATIVE = { gzip: nativeFormat('gzip'), 'x-gzip': nativeFormat('gzip'), deflate: nativeFormat('deflate'), br: nativeFormat('brotli', 'br') };
+
+/** TransformStream that undoes brotli with the wasm decoder. */
+function wasmBrotli() {
+  const d = new BrotliDecoder();
+  return new TransformStream({
+    transform(chunk, ctl) { const out = d.push(chunk); if (out.length) ctl.enqueue(out); },
+    flush(ctl) { const out = d.finish(); if (out.length) ctl.enqueue(out); d.free(); },
+  });
+}
+
+const DECODABLE = new Set(['gzip', 'x-gzip', 'deflate', 'br']);
+export const ACCEPT_ENCODING = 'gzip, deflate, br';
+
+/** Decode a Response per Content-Encoding (codings undone in reverse order). */
+export function decodeResponse(res) {
+  const ce = res.headers.get('content-encoding');
+  if (!ce || !res.body) return res;
+  const codings = ce.split(',').map((s) => s.trim().toLowerCase()).filter((c) => c && c !== 'identity');
+  if (!codings.every((c) => DECODABLE.has(c))) return res;
+  let body = res.body;
+  for (const c of codings.reverse()) {
+    body = body.pipeThrough(NATIVE[c] ? new DecompressionStream(NATIVE[c]) : wasmBrotli());
+  }
+  const headers = new Headers(res.headers);
+  headers.delete('content-encoding');
+  headers.delete('content-length');
+  return new Response(body, { status: res.status, statusText: res.statusText, headers });
+}
 
 export async function loadWasm(wasmUrl) {
   if (!wasmReady) {
@@ -53,7 +89,7 @@ export async function createEngine(o) {
   return {
     client,
     timings: { wasmMs: tWasm - t0, bootstrapMs: tBoot - tWasm, totalMs: tBoot - t0, carriers },
-    fetch: (url, init) => client.fetch(url, init ?? {}),
+    fetch: async (url, init) => decodeResponse(await client.fetch(url, init ?? {})),
     connect: (host, port, opts = {}) => client.connect(host, port, !!opts.tls, opts),
     status: () => client.bootstrapStatus(),
     stats: () => {

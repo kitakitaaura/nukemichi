@@ -35,6 +35,7 @@ pub(crate) enum KeyError {
 /// per-group state that must not be shared with any other key.
 #[derive(Clone)]
 pub(crate) struct Group<T> {
+    #[allow(dead_code, reason = "Nukemichi keeps a rotating conn::Slot in `state` instead")]
     pub(crate) token: IsolationToken,
     pub(crate) state: T,
 }

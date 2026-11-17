@@ -1,5 +1,5 @@
-target/
-js/pkg/
-node_modules/
 bench/node_modules
 bench/results/raw/
+js/pkg/
+node_modules/
+target/

@@ -1,0 +1,128 @@
+{
+ "fetchedAt": "2026-11-17T03:01:13.416Z",
+ "relaysPublished": "2026-11-17 01:00:00",
+ "runningRelays": 9569,
+ "exitFlagged": 2809,
+ "rows": [
+  {
+   "port": 80,
+   "stableRequired": false,
+   "candidateExits": 2771,
+   "exitFlaggedAllowing": 2771,
+   "shareOfExitProbability": 0.999,
+   "weightVsPort443": 0.999
+  },
+  {
+   "port": 443,
+   "stableRequired": false,
+   "candidateExits": 2774,
+   "exitFlaggedAllowing": 2772,
+   "shareOfExitProbability": 0.999,
+   "weightVsPort443": 1
+  },
+  {
+   "port": 22,
+   "stableRequired": true,
+   "candidateExits": 957,
+   "exitFlaggedAllowing": 956,
+   "shareOfExitProbability": 0.387,
+   "weightVsPort443": 0.387
+  },
+  {
+   "port": 25,
+   "stableRequired": false,
+   "candidateExits": 511,
+   "exitFlaggedAllowing": 511,
+   "shareOfExitProbability": 0.155,
+   "weightVsPort443": 0.154
+  },
+  {
+   "port": 465,
+   "stableRequired": false,
+   "candidateExits": 1147,
+   "exitFlaggedAllowing": 1146,
+   "shareOfExitProbability": 0.479,
+   "weightVsPort443": 0.477
+  },
+  {
+   "port": 587,
+   "stableRequired": false,
+   "candidateExits": 1160,
+   "exitFlaggedAllowing": 1159,
+   "shareOfExitProbability": 0.482,
+   "weightVsPort443": 0.48
+  },
+  {
+   "port": 993,
+   "stableRequired": false,
+   "candidateExits": 1712,
+   "exitFlaggedAllowing": 1710,
+   "shareOfExitProbability": 0.7,
+   "weightVsPort443": 0.699
+  },
+  {
+   "port": 6667,
+   "stableRequired": true,
+   "candidateExits": 1385,
+   "exitFlaggedAllowing": 1378,
+   "shareOfExitProbability": 0.574,
+   "weightVsPort443": 0.574
+  },
+  {
+   "port": 6697,
+   "stableRequired": true,
+   "candidateExits": 1388,
+   "exitFlaggedAllowing": 1384,
+   "shareOfExitProbability": 0.577,
+   "weightVsPort443": 0.577
+  },
+  {
+   "port": 5222,
+   "stableRequired": true,
+   "candidateExits": 1586,
+   "exitFlaggedAllowing": 1581,
+   "shareOfExitProbability": 0.674,
+   "weightVsPort443": 0.677
+  },
+  {
+   "port": 8333,
+   "stableRequired": false,
+   "candidateExits": 1921,
+   "exitFlaggedAllowing": 1913,
+   "shareOfExitProbability": 0.837,
+   "weightVsPort443": 0.839
+  },
+  {
+   "port": 9418,
+   "stableRequired": false,
+   "candidateExits": 2521,
+   "exitFlaggedAllowing": 2518,
+   "shareOfExitProbability": 0.909,
+   "weightVsPort443": 0.911
+  },
+  {
+   "port": 25565,
+   "stableRequired": false,
+   "candidateExits": 894,
+   "exitFlaggedAllowing": 894,
+   "shareOfExitProbability": 0.376,
+   "weightVsPort443": 0.375
+  },
+  {
+   "port": 4242,
+   "stableRequired": false,
+   "candidateExits": 893,
+   "exitFlaggedAllowing": 893,
+   "shareOfExitProbability": 0.375,
+   "weightVsPort443": 0.374
+  },
+  {
+   "port": 4243,
+   "stableRequired": false,
+   "candidateExits": 893,
+   "exitFlaggedAllowing": 893,
+   "shareOfExitProbability": 0.375,
+   "weightVsPort443": 0.374
+  }
+ ]
+}
