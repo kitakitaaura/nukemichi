@@ -1,3 +1,5 @@
+import { sendInPieces } from './ports.js';
+
 // Byte-pipe helpers. A "socket" here is { readable, writable, close() }:
 // the shape the wasm runtime (JsProxyStream) consumes.
 
@@ -37,7 +39,8 @@ export function messageChannelSocket(ch, { highWater = 1 << 20, onClose } = {}) 
     async write(chunk) {
       if (closed) throw new Error('carrier closed');
       await drain();
-      ch.send(chunk);
+      if (typeof RTCDataChannel !== 'undefined' && ch instanceof RTCDataChannel) sendInPieces(ch, chunk);
+      else ch.send(chunk);
     },
     close() { try { ch.close(); } catch {} },
     abort() { try { ch.close(); } catch {} },

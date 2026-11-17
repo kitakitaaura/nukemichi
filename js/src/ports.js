@@ -142,6 +142,13 @@ export function portChannel(port) {
   return ch;
 }
 
+// Peers cap SCTP messages (often 64 KiB, sometimes less); the carrier is a byte stream, so splitting is safe.
+const MAX_DC_MESSAGE = 16 * 1024;
+export function sendInPieces(dc, data) {
+  const bytes = data instanceof ArrayBuffer ? new Uint8Array(data) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+  for (let i = 0; i < bytes.byteLength; i += MAX_DC_MESSAGE) dc.send(bytes.subarray(i, i + MAX_DC_MESSAGE));
+}
+
 /** Main-thread side: relay an open RTCDataChannel over `port`. */
 export function relayChannelToPort(dc, pc, port) {
   dc.binaryType = 'arraybuffer';
@@ -150,7 +157,7 @@ export function relayChannelToPort(dc, pc, port) {
   dc.onerror = () => port.postMessage({ t: 'error', message: 'data channel error' });
   port.onmessage = (ev) => {
     const m = ev.data;
-    if (m.t === 'data') { if (dc.readyState === 'open') dc.send(m.buf); }
+    if (m.t === 'data') { if (dc.readyState === 'open') sendInPieces(dc, m.buf); }
     else if (m.t === 'close') { dc.close(); pc?.close(); }
   };
 }
