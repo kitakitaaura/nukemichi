@@ -112,7 +112,13 @@ class WorkerHost {
     this.pending = new Map();
     this.log = opts.log;
     this.worker.onmessage = (ev) => this.onMessage(ev.data);
-    this.worker.onerror = (e) => this.log?.('error', 'nukemichi', `worker error: ${e.message}`);
+    // A worker that fails to load (file:// pages, a CSP without blob:) reports
+    // only this event, with no message; fail every waiting call instead of hanging.
+    this.worker.onerror = (e) => {
+      this.failed = new Error(`nukemichi: worker failed${e.message ? `: ${e.message}` : ' to start'}`);
+      for (const p of this.pending.values()) p.reject(this.failed);
+      this.pending.clear();
+    };
   }
   onMessage(m) {
     if (m.log) { this.log?.(...m.log); return; }
@@ -135,6 +141,7 @@ class WorkerHost {
   call(op, args, transfer = []) {
     const id = ++this.seq;
     return { id, promise: new Promise((resolve, reject) => {
+      if (this.failed) { reject(this.failed); return; }
       this.pending.set(id, { resolve, reject });
       this.worker.postMessage({ id, op, args }, transfer);
     }) };
@@ -203,8 +210,23 @@ class InlineHost {
  */
 export function createClient(opts = {}) {
   const o = { transport: 'webrtc', worker: true, storage: 'indexeddb', logLevel: 'warn', ...opts };
-  const host = o.worker ? new WorkerHost(o) : new InlineHost(o);
-  const ready = host.create(o);
+  let host;
+  const ready = (async () => {
+    if (o.worker) {
+      let w;
+      try {
+        w = new WorkerHost(o);
+        host = w;
+        return await w.create(o);
+      } catch (e) {
+        if (w && !w.failed) throw e;
+        w?.worker.terminate();
+        o.log?.('warn', 'nukemichi', `${e.message}; running Tor on the main thread`);
+      }
+    }
+    host = new InlineHost(o);
+    return host.create(o);
+  })();
   const client = {
     /** Resolves with bootstrap timings once Tor is usable. */
     ready: () => ready,
