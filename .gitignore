@@ -5,3 +5,4 @@ node_modules/
 target/
 anti-slop/
 *.tgz
+.DS_Store
