@@ -6,8 +6,7 @@
 //! isolation group per distinct key: requests with the same key may share
 //! circuits; requests with different keys never do.
 //!
-//! The key is the caller's opaque label (an anon-rpc host might derive it from
-//! the account a request is about). It is never logged or sent anywhere.
+//! The key is the caller's opaque label. It is never logged or sent anywhere.
 //!
 //! A circuit is not the only thing requests could share. Each group also
 //! carries state of its own that must not cross keys — for `fetch`, its TLS

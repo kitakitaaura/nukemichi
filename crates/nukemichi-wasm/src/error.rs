@@ -46,7 +46,6 @@ pub struct JsTorError {
 }
 
 impl JsTorError {
-    /// Create a new error
     pub fn new(code: &str, kind: &str, message: impl Into<String>, retryable: bool) -> Self {
         Self {
             code: code.to_string(),
@@ -57,7 +56,6 @@ impl JsTorError {
         }
     }
 
-    /// Create a "not initialized" error
     pub fn not_initialized() -> Self {
         Self::new(
             "NOT_INITIALIZED",
@@ -67,12 +65,10 @@ impl JsTorError {
         )
     }
 
-    /// Create an HTTP request error
     pub fn http_request(message: impl Into<String>) -> Self {
         Self::new("HTTP_REQUEST", "network", message, true)
     }
 
-    /// Create a connection error
     pub fn connection(message: impl Into<String>) -> Self {
         Self::new("CONNECTION", "network", message, true)
     }
@@ -87,22 +83,18 @@ impl JsTorError {
         }
     }
 
-    /// Create a TLS error
     pub fn tls(message: impl Into<String>) -> Self {
         Self::new("TLS", "network", message, true)
     }
 
-    /// Create a bootstrap error
     pub fn bootstrap(message: impl Into<String>) -> Self {
         Self::new("BOOTSTRAP", "circuit", message, true)
     }
 
-    /// Create a configuration error
     pub fn config(message: impl Into<String>) -> Self {
         Self::new("CONFIGURATION", "configuration", message, false)
     }
 
-    /// Create an internal error
     pub fn internal(message: impl Into<String>) -> Self {
         Self::new("INTERNAL", "internal", message, false)
     }

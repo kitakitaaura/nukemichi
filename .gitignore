@@ -3,3 +3,5 @@ bench/results/raw/
 js/pkg/
 node_modules/
 target/
+anti-slop/
+*.tgz

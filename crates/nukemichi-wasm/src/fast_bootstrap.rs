@@ -29,9 +29,8 @@ use tracing::{info, warn};
 /// Zstd frame magic number (little-endian 0xFD2FB528).
 const ZSTD_MAGIC: [u8; 4] = [0x28, 0xB5, 0x2F, 0xFD];
 
-/// Decompress the archive if it is zstd-compressed (tor-js-gateway serves
-/// `/bootstrap.zip.zst` as raw zstd bytes over KPS — there is no transparent
-/// content-encoding on KPS streams). Raw zip bytes pass through unchanged.
+/// Decompress the archive if it is zstd (tor-js-gateway serves
+/// `/bootstrap.zip.zst` raw). Zip bytes pass through unchanged.
 fn maybe_decompress_zstd(bytes: Vec<u8>) -> Result<Vec<u8>, String> {
     if bytes.len() < 4 || bytes[..4] != ZSTD_MAGIC {
         return Ok(bytes);
@@ -54,7 +53,6 @@ pub async fn maybe_fast_bootstrap(
     storage: &CachedJsStorage,
     callback: js_sys::Function,
 ) -> Result<(), wasm_bindgen::JsValue> {
-    // Check if we already have a consensus
     let consensus_keys = storage
         .keys("dir:consensus:")
         .map_err(|e| wasm_bindgen::JsValue::from_str(&format!("storage error: {}", e)))?;
@@ -120,19 +118,15 @@ pub async fn maybe_fast_bootstrap(
         valid_until_secs,
     )?;
 
-    // Parse and store authority certificates
     store_authcerts(storage, authcert_text)?;
 
-    // Parse and store microdescriptors
     store_microdescs(storage, microdesc_text, valid_after_secs)?;
 
     info!("Fast bootstrap: done");
     Ok(())
 }
 
-// ============================================================================
 // Zip parser (Stored-only)
-// ============================================================================
 
 /// Why a bootstrap archive could not be read.
 ///
@@ -194,11 +188,8 @@ fn parse_stored_zip(data: &[u8]) -> Result<HashMap<String, String>, ZipError> {
         let name_len = u16::from_le_bytes([data[offset + 26], data[offset + 27]]);
         let extra_len = u16::from_le_bytes([data[offset + 28], data[offset + 29]]);
 
-        // Offsets are accumulated in u64 because every term is attacker-supplied
-        // and `usize` is 32 bits on wasm32: computing this in `usize` lets a
-        // crafted `compressed_size` near `u32::MAX` wrap past the bounds check
-        // below and then panic on the backwards slice. u64 also keeps the check
-        // — and its test — behaving identically on every target.
+        // u64: every term is attacker-supplied and `usize` is 32 bits on wasm32,
+        // where a crafted size could wrap past the bounds check below.
         let name_start = offset as u64 + 30;
         let name_end = name_start + name_len as u64;
         let data_start = name_end + extra_len as u64;
@@ -226,10 +217,6 @@ fn parse_stored_zip(data: &[u8]) -> Result<HashMap<String, String>, ZipError> {
     Ok(files)
 }
 
-// ============================================================================
-// Helpers
-// ============================================================================
-
 fn system_time_to_secs(t: std::time::SystemTime) -> u64 {
     t.duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
@@ -250,9 +237,7 @@ fn storage_set(
         .map_err(|e| js_err(format_args!("storage error: {}", e)))
 }
 
-// ============================================================================
 // Consensus storage
-// ============================================================================
 
 fn store_consensus(
     storage: &CachedJsStorage,
@@ -286,9 +271,7 @@ fn store_consensus(
     Ok(())
 }
 
-// ============================================================================
 // Authority certificate storage
-// ============================================================================
 
 fn store_authcerts(
     storage: &CachedJsStorage,
@@ -345,19 +328,14 @@ fn store_authcerts(
     Ok(())
 }
 
-// ============================================================================
 // Microdescriptor storage
-// ============================================================================
 
 /// Store microdescriptors using lightweight text splitting instead of arti's
 /// full parser. Each microdesc starts with "onion-key\n" and the storage key
 /// is SHA-256 of the text from that boundary to the next (matching how arti
 /// computes `Microdesc::sha256`).
 ///
-/// SHA-256 is computed in Rust rather than with `crypto.subtle.digest`, which
-/// only exists in secure contexts and which some hosts deliberately withhold
-/// (e.g. the anon-rpc node harness) — so relying on it made fast bootstrap
-/// fail there.
+/// SHA-256 runs in Rust: `crypto.subtle` is missing outside secure contexts.
 fn store_microdescs(
     storage: &CachedJsStorage,
     microdesc_text: &str,
@@ -370,7 +348,6 @@ fn store_microdescs(
     // Pre-format the fixed suffix since listed_at_secs is the same for all.
     let listed_suffix = format!(",\"listed_at_secs\":{}}}", listed_at_secs);
 
-    // Split on "onion-key\n" boundaries. Each microdesc starts with this marker.
     let marker = "onion-key\n";
 
     // Find all occurrences of "onion-key\n" as microdesc boundaries.
@@ -381,7 +358,6 @@ fn store_microdescs(
         search_from = search_from + pos + marker.len();
     }
 
-    // Compute text boundaries
     let mut slices: Vec<&str> = Vec::with_capacity(positions.len());
     for (i, &start) in positions.iter().enumerate() {
         let end = if i + 1 < positions.len() {
@@ -622,7 +598,7 @@ mod zip_tests {
         assert_eq!(files.len(), 1, "all 50 share the empty name");
     }
 
-    // ---- zstd wrapper ----------------------------------------------------
+    // zstd wrapper
 
     #[test]
     fn raw_zip_bytes_pass_through_undisturbed() {

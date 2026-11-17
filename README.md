@@ -1,20 +1,48 @@
 # Nukemichi (抜け道)
 
-CORS-free HTTP and raw TCP from a web page, through Tor.
+Bypass CORS fully client side, with no backend.
 
-A normal page cannot read responses from servers that send no
-`Access-Control-Allow-Origin`, and cannot open TCP connections. Nukemichi runs
-a Tor client (Arti, the Tor Project's Rust implementation) in WebAssembly. It
-reaches the Tor network over Snowflake, which a browser can speak (WebRTC to a
-volunteer proxy, or a WebSocket to the bridge). A Tor exit relay opens the real
-TCP connection; TLS and HTTP run inside the page. The browser only sees
-WebRTC/WebSocket traffic to Snowflake, so CORS never applies, and the target
-server sees an ordinary client.
+Nukemichi gives a web page HTTP and raw TCP through Tor. A normal page can't
+read responses from servers that send no `Access-Control-Allow-Origin`, and
+can't open TCP connections at all.
 
-Status: experimental research prototype. See `docs/REPORT.md` for the
-measurements and the open risks before using this for anything real.
+Nukemichi runs a Tor client (Arti, the Tor Project's Rust implementation) in
+WebAssembly and reaches the Tor network over Snowflake, which a browser can
+speak: WebRTC to a volunteer proxy, or a WebSocket to the bridge. A Tor exit
+relay opens the real TCP connection, and TLS and HTTP run inside the page. The
+browser only sees WebRTC or WebSocket traffic to Snowflake, so CORS never
+applies. The target server sees a connection from a Tor exit, so some sites
+block it or answer with a CAPTCHA.
 
 ## Use
+
+From a CDN, with no build step. One script tag defines `window.nukemichi`:
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/nukemichi@0.1/js/src/global.js"></script>
+<script>
+  nukemichi.fetch('https://example.com/')
+    .then((res) => res.text())
+    .then(console.log);
+</script>
+```
+
+Every method on the global returns a Promise, including `createClient`. Or
+import the ES module:
+
+```html
+<script type="module">
+  import nukemichi from 'https://cdn.jsdelivr.net/npm/nukemichi@0.1/js/src/index.js';
+  const res = await nukemichi.fetch('https://example.com/');
+</script>
+```
+
+Load the files as they are, not through jsDelivr's `/+esm` bundling, which
+breaks the relative URLs of the worker and the wasm. The worker starts from a
+`blob:` URL when the library comes from another origin, so a page with a
+Content Security Policy needs `worker-src blob:`, or `worker: false`.
+
+With a bundler (`npm install nukemichi`):
 
 ```js
 import nukemichi from 'nukemichi';
@@ -59,13 +87,14 @@ rustup target add wasm32-unknown-unknown
 ```
 
 ```bash
-cd crates/nukemichi-wasm && wasm-pack build --target web --release --out-dir ../../js/pkg --out-name nukemichi
+npm run build
 ```
+
+This runs `wasm-pack` and writes `js/pkg/`, which the npm package ships.
 
 ## Demo
 
-Serve the repository root over HTTP (any static server) and open
-`/demo/index.html`:
+Serve the repository root with any static server:
 
 ```bash
 python3 -m http.server 8766
@@ -89,8 +118,12 @@ cd bench && npm install && npx playwright install chromium firefox webkit
 | `bench/reach.mjs <browser> <transport>` | HTTPS reach to ~27 popular sites/APIs |
 | `bench/exit-ports.mjs` | share of exits allowing each port (Onionoo) |
 | `bench/soak.mjs <browser> <transport> [minutes]` | 30-minute reliability run |
+| `bench/cdn.mjs <browser> [transport]` | load from another origin, as from a CDN |
 
 Keep test traffic small: these are volunteer-run networks.
+
+The measurements and open risks (exit blocking, CAPTCHAs, Snowflake capacity,
+browser support) are in `docs/REPORT.md`.
 
 ## Layout
 

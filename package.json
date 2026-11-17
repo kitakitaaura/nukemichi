@@ -1,0 +1,39 @@
+{
+  "name": "nukemichi",
+  "version": "0.1.0",
+  "description": "CORS-free HTTP and raw TCP from a web page, through Tor (Arti in wasm over Snowflake).",
+  "license": "MIT OR Apache-2.0",
+  "type": "module",
+  "main": "./js/src/index.js",
+  "browser": "./js/src/index.js",
+  "exports": {
+    ".": "./js/src/index.js",
+    "./global": "./js/src/global.js"
+  },
+  "jsdelivr": "./js/src/global.js",
+  "unpkg": "./js/src/global.js",
+  "sideEffects": [
+    "./js/src/global.js"
+  ],
+  "files": [
+    "js/src/",
+    "js/pkg/nukemichi.js",
+    "js/pkg/nukemichi_bg.wasm",
+    "NOTICE",
+    "LICENSE-MIT",
+    "LICENSE-APACHE"
+  ],
+  "keywords": [
+    "tor",
+    "arti",
+    "snowflake",
+    "cors",
+    "fetch",
+    "tcp",
+    "wasm"
+  ],
+  "scripts": {
+    "build": "cd crates/nukemichi-wasm && wasm-pack build --target web --release --out-dir ../../js/pkg --out-name nukemichi && rm -f ../../js/pkg/.gitignore",
+    "prepack": "test -f js/pkg/nukemichi_bg.wasm || (echo 'run npm run build first' && exit 1)"
+  }
+}

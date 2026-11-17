@@ -68,7 +68,7 @@ const SMUX_KEEPALIVE_MS: f64 = 10_000.0;
 /// How long to keep trying to find a new carrier before giving up.
 const REDIAL_BUDGET_MS: f64 = 120_000.0;
 
-/// Counters exposed to JS for the Phase 2 reliability measurements.
+/// Counters exposed to JS through `snowflakeStats()`.
 #[derive(Default, Debug)]
 pub struct SnowflakeStats {
     /// Carriers successfully opened (1 = no churn).
@@ -109,9 +109,7 @@ fn now_ms() -> f64 {
     js_sys::Date::now()
 }
 
-// ---------------------------------------------------------------------------
 // Encapsulation (snowflake/common/encapsulation)
-// ---------------------------------------------------------------------------
 
 fn encapsulate(data: &[u8], out: &mut Vec<u8>) {
     let n = data.len();
@@ -180,9 +178,7 @@ impl Decapsulator {
     }
 }
 
-// ---------------------------------------------------------------------------
 // KCP output sink
-// ---------------------------------------------------------------------------
 
 /// KCP writes each outgoing packet here; the driver drains and encapsulates.
 #[derive(Clone, Default)]
@@ -198,9 +194,7 @@ impl Write for PacketSink {
     }
 }
 
-// ---------------------------------------------------------------------------
 // The stream handed to Arti
-// ---------------------------------------------------------------------------
 
 /// Shared state between the [`SnowflakeStream`] and its driver task.
 #[derive(Default)]
@@ -282,9 +276,7 @@ impl AsyncWrite for SnowflakeStream {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Driver
-// ---------------------------------------------------------------------------
 
 struct Driver {
     dial: CarrierDialer,

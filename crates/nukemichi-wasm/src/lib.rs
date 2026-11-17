@@ -7,11 +7,10 @@
 //! Derived from tor-js (github.com/ethereum/tor-js, MIT OR Apache-2.0). See
 //! NOTICE at the repository root for what changed.
 //!
-//! The JS entry point is `js/nukemichi.js`; this module is its engine.
+//! The JS API is `js/src/index.js`; this crate is its engine.
 
-// The crate only *runs* on wasm32, but it also compiles for the host under
-// `cfg(test)` so the pure logic — the bootstrap zip parser and the HTTP codec —
-// is covered by a plain `cargo test` instead of needing a browser/Node harness.
+// Also compiles for the host under `cfg(test)`, so the zip parser and HTTP
+// codec run under plain `cargo test`.
 #![cfg(any(target_arch = "wasm32", test))]
 
 mod conn;
@@ -44,7 +43,7 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use wasm_bindgen::prelude::*;
 
-// Global log callback (WASM is single-threaded, so thread_local is fine)
+// wasm is single-threaded, so a thread_local is enough.
 thread_local! {
     static LOG_CALLBACK: RefCell<Option<js_sys::Function>> = const { RefCell::new(None) };
     static LOG_LEVEL_HANDLE: RefCell<Option<tracing_subscriber::reload::Handle<
@@ -68,21 +67,12 @@ fn parse_level(level: &str) -> Result<tracing_subscriber::filter::LevelFilter, J
     }
 }
 
-// ============================================================================
-// Initialization
-// ============================================================================
-
-/// Initialize the tor-js WASM module
+/// Set up the panic hook and logging. Call once before creating a TorClient.
 ///
-/// This must be called before creating any TorClient instances.
-/// Sets up panic hooks and logging infrastructure.
-///
-/// The optional `log_level` parameter sets the initial log level:
-/// "trace", "debug", "info", "warn", or "error". Defaults to "debug".
-/// The level can be changed later with `setLogLevel()`.
+/// `log_level` is "trace", "debug", "info", "warn" or "error" (default
+/// "debug"); change it later with `setLogLevel()`.
 #[wasm_bindgen]
 pub fn init(log_level: Option<String>) -> Result<(), JsValue> {
-    // Set up panic handler for better error messages
     console_error_panic_hook::set_once();
 
     let initial_filter = match log_level.as_deref() {
@@ -90,10 +80,9 @@ pub fn init(log_level: Option<String>) -> Result<(), JsValue> {
         None => tracing_subscriber::filter::LevelFilter::DEBUG,
     };
 
-    // Create a reloadable filter so the level can be changed dynamically
     let (filter, reload_handle) = tracing_subscriber::reload::Layer::new(initial_filter);
 
-    // Use try_init() to avoid panicking if init() is called more than once
+    // init() may run more than once; try_init() does not panic then.
     let _ = tracing_subscriber::registry()
         .with(filter)
         .with(JsLogLayer)
@@ -144,7 +133,6 @@ where
         event: &tracing::Event<'_>,
         _ctx: tracing_subscriber::layer::Context<'_, S>,
     ) {
-        // Extract event data
         let level = match *event.metadata().level() {
             tracing::Level::TRACE => "trace",
             tracing::Level::DEBUG => "debug",
@@ -156,7 +144,6 @@ where
         let mut visitor = MessageVisitor::default();
         event.record(&mut visitor);
 
-        // Try to call the JavaScript callback
         LOG_CALLBACK.with(|cb| {
             if let Some(callback) = cb.borrow().as_ref() {
                 let _ = callback.call3(
@@ -203,21 +190,16 @@ impl tracing::field::Visit for MessageVisitor {
     }
 }
 
-// ============================================================================
-// TorClientOptions
-// ============================================================================
-
 /// Options for creating a TorClient
 #[wasm_bindgen]
 pub struct TorClientOptions {
-    /// JS callback: `(addr: string) => Promise<RelaySocket>`
-    /// The socket must have: send(Uint8Array), onmessage, onclose, close()
+    /// JS callback: `(addr: string) => Promise<{ readable, writable, close() }>`.
     connect: js_sys::Function,
     /// Custom storage implementation (optional)
     storage: Option<JsStorageInterface>,
     /// Optional callback returning bootstrap.zip bytes for fast directory pre-population
     fast_bootstrap: Option<js_sys::Function>,
-    /// Nukemichi: bridge lines (`"192.0.2.3:80 <FINGERPRINT>"`), all reached via Snowflake.
+    /// Bridge lines (`"192.0.2.3:80 <FINGERPRINT>"`), all reached via Snowflake.
     bridges: Vec<String>,
 }
 
@@ -226,13 +208,8 @@ impl TorClientOptions {
     /// Create options with a connect function.
     ///
     /// The connect function receives a target address string (e.g. "198.51.100.1:9001")
-    /// and must return a Promise resolving to a socket object with:
-    /// - `send(data: Uint8Array)` — send binary data
-    /// - `onmessage: ((data: Uint8Array) => void) | null` — receive callback
-    /// - `onclose: (() => void) | null` — close notification
-    /// - `close()` — close the socket
-    ///
-    /// The TS wrapper provides this automatically via the Gateway class.
+    /// and must return a Promise of `{ readable, writable, close() }` (WHATWG
+    /// byte streams; `js/src/snowflake.js` builds this function).
     #[wasm_bindgen(constructor)]
     pub fn new(connect: js_sys::Function) -> Self {
         Self {
@@ -263,8 +240,7 @@ impl TorClientOptions {
     ///
     /// If not set, in-memory storage is used (state lost on page reload).
     ///
-    /// # Arguments
-    /// * `storage` - A JavaScript object implementing the TorStorage interface
+    /// `storage` implements the TorStorage interface (see `js/src/storage.js`).
     #[wasm_bindgen(js_name = withStorage)]
     pub fn with_storage(mut self, storage: JsStorageInterface) -> Self {
         self.storage = Some(storage);
@@ -286,10 +262,6 @@ impl TorClientOptions {
     }
 }
 
-// ============================================================================
-// TorClient
-// ============================================================================
-
 /// Tor client for making HTTP requests through the Tor network
 #[wasm_bindgen]
 pub struct TorClient {
@@ -304,12 +276,7 @@ pub struct TorClient {
 
 #[wasm_bindgen]
 impl TorClient {
-    /// Create a new TorClient with the given options.
-    ///
-    /// This is an async operation that returns a Promise.
-    /// The client will bootstrap and establish a connection to the Tor network.
-    ///
-    /// Usage from JS: `const client = await TorClient.create(options);`
+    /// Bootstrap a client: `const client = await TorClient.create(options);`
     pub fn create(options: TorClientOptions) -> js_sys::Promise {
         wasm_bindgen_futures::future_to_promise(async move {
             let client = create_client(options).await?;
@@ -372,12 +339,10 @@ impl TorClient {
         wasm_bindgen_futures::future_to_promise(async move {
             use futures::StreamExt;
 
-            // Fast path: already ready
             if client.bootstrap_status().ready_for_traffic() {
                 return Ok(JsValue::undefined());
             }
 
-            // Poll bootstrap events until ready
             let mut events = client.bootstrap_events();
             while let Some(status) = events.next().await {
                 if status.ready_for_traffic() {
@@ -445,13 +410,12 @@ impl TorClient {
     }
 }
 
-/// Create a TorClient with the given options
 async fn create_client(options: TorClientOptions) -> Result<TorClient, JsValue> {
     debug!("nukemichi {}", env!("CARGO_PKG_VERSION"));
     info!("Creating TorClient");
 
-    // 1. Configure arti-client. With bridges (the normal Nukemichi case), every
-    // Tor channel goes to a Snowflake bridge; Arti never dials relays itself.
+    // With bridges (the normal case), every Tor channel goes to a Snowflake
+    // bridge; Arti never dials relays itself.
     let mut config_builder = TorClientConfig::builder();
     let mut snowflake_addrs = Vec::new();
     if !options.bridges.is_empty() {
@@ -481,12 +445,10 @@ async fn create_client(options: TorClientOptions) -> Result<TorClient, JsValue> 
         .build()
         .map_err(|e| JsTorError::config(format!("Failed to build config: {}", e)).into_js_value())?;
 
-    // 2. Create WASM runtime with JS connect function
     let mut runtime = WasmRuntime::default();
     runtime.set_connect_fn(options.connect);
     runtime.set_snowflake_addrs(snowflake_addrs);
 
-    // 3. Build the client with optional custom storage
     let mut builder = ArtiTorClient::with_runtime(runtime).config(config);
 
     if let Some(js_storage_interface) = options.storage {
@@ -518,7 +480,6 @@ async fn create_client(options: TorClientOptions) -> Result<TorClient, JsValue> 
 
     info!("TorClient created (unbootstrapped)");
 
-    // 4. Bootstrap the client (connects to directory authorities via WS proxy)
     info!("Bootstrapping Tor client...");
     tor_client
         .bootstrap()
@@ -540,8 +501,7 @@ pub fn snowflake_stats() -> Vec<f64> {
     snowflake::stats_snapshot().to_vec()
 }
 
-/// Build a rustls ClientConfig with the Mozilla CA bundle (compiled in via webpki-roots)
-/// and the pure-Rust crypto provider (rustls-rustcrypto) for WASM compatibility.
+/// rustls client config: Mozilla roots (webpki-roots), ring crypto, HTTP/1.1 ALPN.
 fn make_tls_config() -> futures_rustls::rustls::ClientConfig {
     use futures_rustls::rustls;
 
@@ -558,10 +518,6 @@ fn make_tls_config() -> futures_rustls::rustls::ClientConfig {
     config.alpn_protocols = vec![b"http/1.1".to_vec()];
     config
 }
-
-// ============================================================================
-// Fetch Implementation
-// ============================================================================
 
 /// Fetch init options from JavaScript
 #[derive(Debug, Default, Deserialize)]
@@ -584,11 +540,9 @@ async fn fetch_impl(
     tls_config: Arc<futures_rustls::rustls::ClientConfig>,
     slot: conn::Slot,
 ) -> Result<JsValue, JsValue> {
-    // Parse URL
     let url = url::Url::parse(url_str)
         .map_err(|e| JsTorError::new("INVALID_URL", "validation", e.to_string(), false).into_js_value())?;
 
-    // Parse fetch options
     let fetch_init: FetchInit = if init.is_undefined() || init.is_null() {
         FetchInit::default()
     } else {
@@ -627,7 +581,6 @@ async fn fetch_impl(
 
     let headers = fetch_init.headers.unwrap_or_default();
 
-    // Get host and port
     let host = url
         .host_str()
         .ok_or_else(|| JsTorError::new("INVALID_URL", "validation", "No host in URL", false).into_js_value())?;
@@ -692,7 +645,6 @@ async fn fetch_impl(
         result.body_reader.on_reusable(Box::new(move |c| conn::pool_put(key, c)));
     }
 
-    // Build web_sys::Headers from the parsed headers
     let js_headers = web_sys::Headers::new()
         .map_err(|e| JsTorError::internal(format!("Failed to create Headers: {:?}", e)).into_js_value())?;
     for (key, value) in &result.headers {
@@ -700,7 +652,6 @@ async fn fetch_impl(
             .map_err(|e| JsTorError::internal(format!("Failed to set header {}: {:?}", key, e)).into_js_value())?;
     }
 
-    // Convert BodyReader → futures::Stream → JS ReadableStream
     // The signal is threaded through the unfold state so abort interrupts each chunk read.
     let body_stream = futures::stream::unfold((result.body_reader, signal), |(mut reader, sig)| async move {
         let chunk = abortable(sig.as_ref(), async { reader.read_chunk().await.map_err(|e| e.into_js_value()) }).await;
@@ -716,12 +667,10 @@ async fn fetch_impl(
     let readable = wasm_streams::ReadableStream::from_stream(body_stream);
     let raw_readable: web_sys::ReadableStream = readable.into_raw();
 
-    // Create ResponseInit with status + headers
     let response_init = web_sys::ResponseInit::new();
     response_init.set_status(result.status);
     response_init.set_headers(&js_headers.into());
 
-    // Create the real browser Response
     let response = web_sys::Response::new_with_opt_readable_stream_and_init(
         Some(&raw_readable),
         &response_init,
@@ -731,7 +680,6 @@ async fn fetch_impl(
     Ok(response.into())
 }
 
-/// Extract body from JavaScript FetchInit object
 fn extract_body_from_js(init: &JsValue) -> Result<fetch::RequestBody, JsValue> {
     let body = js_sys::Reflect::get(init, &JsValue::from_str("body"))
         .map_err(|e| JsTorError::new("INVALID_OPTIONS", "validation", format!("Failed to get body: {:?}", e), false).into_js_value())?;
@@ -740,17 +688,14 @@ fn extract_body_from_js(init: &JsValue) -> Result<fetch::RequestBody, JsValue> {
         return Ok(fetch::RequestBody::None);
     }
 
-    // Handle string body
     if let Some(s) = body.as_string() {
         return Ok(fetch::RequestBody::Bytes(s.into_bytes()));
     }
 
-    // Handle Uint8Array
     if let Ok(arr) = body.clone().dyn_into::<js_sys::Uint8Array>() {
         return Ok(fetch::RequestBody::Bytes(arr.to_vec()));
     }
 
-    // Handle ArrayBuffer
     if let Ok(buf) = body.clone().dyn_into::<js_sys::ArrayBuffer>() {
         let arr = js_sys::Uint8Array::new(&buf);
         return Ok(fetch::RequestBody::Bytes(arr.to_vec()));
@@ -896,10 +841,6 @@ impl Drop for AbortListener<'_> {
             .remove_event_listener_with_callback("abort", self.callback.as_ref().unchecked_ref());
     }
 }
-
-// ============================================================================
-// TypeScript definitions
-// ============================================================================
 
 #[wasm_bindgen(typescript_custom_section)]
 const TS_TYPES: &str = r#"

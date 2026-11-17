@@ -1,10 +1,7 @@
-//! HTTP fetch implementation over arti-client DataStream
+//! HTTP/1.1 over a Tor stream (TLS-wrapped for HTTPS).
 //!
-//! This module implements HTTP/1.1 requests over Tor streams,
-//! with TLS support via rustls for HTTPS.
-//!
-//! The fetch resolves as soon as response headers are received.
-//! Body reading is deferred — chunks are read incrementally via `read_chunk()`.
+//! A fetch resolves once the response head arrives; the body is read on
+//! demand with `read_chunk()`.
 
 use crate::error::JsTorError;
 use futures::io::{AsyncReadExt, AsyncWriteExt};
@@ -15,15 +12,12 @@ use std::pin::Pin;
 use tracing::{debug, info};
 use url::Url;
 
-/// The request body source handed to {@link fetch_headers}.
+/// A request body.
 pub enum RequestBody {
-    /// No request body.
     None,
     /// A fully-materialized body, sent with `Content-Length`.
     Bytes(Vec<u8>),
-    /// A streaming body, sent with `Transfer-Encoding: chunked`. Boxed-local
-    /// (JS-backed streams are `!Send`; the fetch future runs via `spawn_local`,
-    /// so `Send` is not required). Each item is one body chunk.
+    /// A streaming body, sent chunked. Not `Send`: JS-backed streams are `!Send`.
     Stream(Pin<Box<dyn Stream<Item = Result<Vec<u8>, JsTorError>>>>),
 }
 
@@ -51,10 +45,8 @@ fn has_header(headers: &HashMap<String, String>, name: &str) -> bool {
     headers.keys().any(|k| k.to_ascii_lowercase() == lower)
 }
 
-/// Maximum response header size (64KB)
 const MAX_HEADER_SIZE: usize = 64 * 1024;
 
-/// Type-erased async reader for the response body stream.
 /// A connection we can send a request on and read the response from.
 pub trait Conn: futures::io::AsyncRead + futures::io::AsyncWrite + Unpin {}
 impl<T: futures::io::AsyncRead + futures::io::AsyncWrite + Unpin> Conn for T {}
@@ -104,11 +96,7 @@ pub struct FetchHeadersResult {
     pub body_reader: BodyReader,
 }
 
-/// Reads the HTTP response body from a stream.
-///
-/// Created after headers are parsed, holds the stream and any overflow
-/// bytes that were read past the header separator. Supports both
-/// chunk-by-chunk reading (`read_chunk()`) and full body reading (`read_all()`).
+/// Reads a response body, starting with any bytes read past the head.
 pub struct BodyReader {
     stream: BoxedReader,
     /// Called with the connection once the body is complete, if reusable.
@@ -193,7 +181,6 @@ impl BodyReader {
             return Ok(None);
         }
 
-        // Drain overflow buffer first
         if !self.buffer.is_empty() {
             let take = std::cmp::min(self.buffer.len(), remaining);
             let chunk: Vec<u8> = self.buffer.drain(..take).collect();
@@ -234,7 +221,6 @@ impl BodyReader {
 
     /// Read the next chunk for EOF-terminated framing.
     async fn read_chunk_eof(&mut self) -> Result<Option<Vec<u8>>, JsTorError> {
-        // Drain overflow buffer first
         if !self.buffer.is_empty() {
             let chunk = std::mem::take(&mut self.buffer);
             // Counted so a later read error is treated as a close, matching the
@@ -272,7 +258,7 @@ impl BodyReader {
     /// to decode HTTP chunks incrementally across calls.
     async fn read_chunk_chunked(&mut self) -> Result<Option<Vec<u8>>, JsTorError> {
         loop {
-            // Step 1: If we have data remaining in the current HTTP chunk, return it
+            // Data left in the current chunk: return it.
             if self.chunk_remaining > 0 {
                 let available = if !self.buffer.is_empty() {
                     let take = std::cmp::min(self.buffer.len(), self.chunk_remaining);
@@ -306,9 +292,8 @@ impl BodyReader {
                 return Ok(Some(available));
             }
 
-            // Step 2: Consume trailing \r\n after chunk data
+            // Consume the CRLF after chunk data.
             if self.awaiting_chunk_crlf {
-                // Ensure we have at least 2 bytes in buffer
                 while self.buffer.len() < 2 {
                     let n = self.fill_buffer_from_stream().await?;
                     if n == 0 {
@@ -330,7 +315,7 @@ impl BodyReader {
                 self.awaiting_chunk_crlf = false;
             }
 
-            // Step 3: Read chunk size line
+            // Read the next chunk-size line.
             loop {
                 if let Some(pos) = find_crlf(&self.buffer) {
                     let size_str = std::str::from_utf8(&self.buffer[..pos])
@@ -355,7 +340,7 @@ impl BodyReader {
                     }
 
                     self.chunk_remaining = size;
-                    break; // Go back to step 1 to read chunk data
+                    break;
                 } else {
                     // Need more data for the size line
                     let n = self.fill_buffer_from_stream().await?;
@@ -414,7 +399,6 @@ pub fn build_request_head(
         host
     );
 
-    // Add default headers if not present (case-insensitive checks)
     if !has_header(headers, "User-Agent") {
         // Forward the browser's User-Agent to blend in with normal traffic.
         // In Node.js/Deno, navigator.userAgent is undefined — send no UA.
@@ -465,10 +449,8 @@ pub fn build_request_head(
     Ok(request.into_bytes())
 }
 
-/// Write the request head, then the body — raw bytes for `Bytes`, or
-/// `Transfer-Encoding: chunked` frames for `Stream` — then flush. Streaming a
-/// chunk at a time keeps backpressure on the Tor stream, so a large upload is
-/// never fully buffered in memory.
+/// Write the head, then the body (raw, or chunked for a stream), then flush.
+/// One chunk at a time keeps backpressure on the Tor stream.
 async fn write_request<S>(stream: &mut S, head: &[u8], body: RequestBody) -> Result<(), JsTorError>
 where
     S: futures::io::AsyncWrite + Unpin,
@@ -543,10 +525,8 @@ where
         let header_end;
 
         loop {
-            // Check what we already hold before reading. After a 1xx the
-            // carried-over bytes can already contain the whole final response,
-            // and reading first would block for data the server has no reason
-            // to send.
+            // Check held bytes before reading: after a 1xx they may already hold
+            // the whole final response.
             if let Some(pos) = find_subsequence(&header_buf, b"\r\n\r\n") {
                 header_end = pos;
                 break;
@@ -575,17 +555,14 @@ where
             }
         }
 
-        // Split headers from overflow body bytes
         let header_bytes = &header_buf[..header_end];
         let remaining = header_buf[header_end + 4..].to_vec();
 
-        // Parse headers
         let header_str = std::str::from_utf8(header_bytes)
             .map_err(|e| JsTorError::http_request(format!("Invalid HTTP headers: {}", e)))?;
 
         let mut lines = header_str.lines();
 
-        // Parse status line: "HTTP/1.1 200 OK"
         let status_line = lines
             .next()
             .ok_or_else(|| JsTorError::http_request("Invalid HTTP response: no status line"))?;
@@ -599,7 +576,6 @@ where
             .parse()
             .map_err(|e| JsTorError::http_request(format!("Invalid status code: {}", e)))?;
 
-        // Handle 1xx interim responses
         if (100..200).contains(&parsed_status) {
             if parsed_status == 101 {
                 return Err(JsTorError::http_request(
@@ -612,7 +588,6 @@ where
             continue;
         }
 
-        // Final response
         status = parsed_status;
         headers.clear();
         for line in lines {
@@ -624,7 +599,6 @@ where
         break;
     }
 
-    // Determine body framing
     let framing = if *method == Method::HEAD
         || status == 204
         || status == 304
@@ -843,9 +817,7 @@ mod tests {
         block_on(r.read_all())
     }
 
-    // =====================================================================
     // Content-Length framing
-    // =====================================================================
 
     #[test]
     fn a_content_length_body_arrives_whole() {
@@ -941,9 +913,7 @@ mod tests {
         assert!(err.message.contains("Failed to read body"), "{}", err.message);
     }
 
-    // =====================================================================
     // Chunked framing
-    // =====================================================================
 
     fn chunked(r: BodyReader) -> Result<Vec<u8>, JsTorError> {
         body_of(r)
@@ -1126,9 +1096,7 @@ mod tests {
         assert_eq!(block_on(r.read_chunk()).unwrap(), None);
     }
 
-    // =====================================================================
     // EOF framing
-    // =====================================================================
 
     #[test]
     fn an_until_eof_body_reads_to_the_close() {
@@ -1170,9 +1138,7 @@ mod tests {
         assert_eq!(block_on(r.read_chunk()).unwrap(), None);
     }
 
-    // =====================================================================
     // build_request_head
-    // =====================================================================
 
     fn url(s: &str) -> Url {
         Url::parse(s).unwrap()
@@ -1257,8 +1223,7 @@ mod tests {
         assert_eq!(h.to_ascii_lowercase().matches("user-agent").count(), 1);
     }
 
-    /// The gateway does not virtual-host and the connection already fixes the
-    /// origin, so a caller-supplied Host is dropped rather than sent alongside.
+    /// The connection fixes the origin, so a caller's Host is dropped, not sent twice.
     #[test]
     fn a_caller_supplied_host_never_reaches_the_wire() {
         let h = head(
@@ -1385,9 +1350,7 @@ mod tests {
         }
     }
 
-    // =====================================================================
     // write_request
-    // =====================================================================
 
     fn write(body: RequestBody) -> Result<Vec<u8>, JsTorError> {
         let mut out = futures::io::Cursor::new(Vec::new());
@@ -1478,9 +1441,7 @@ mod tests {
         assert_eq!(chunked(r).unwrap(), b"hello world");
     }
 
-    // =====================================================================
     // read_response_headers
-    // =====================================================================
 
     type ParsedHead = (u16, Vec<(String, String)>, BodyFraming, Vec<u8>);
 
@@ -1727,9 +1688,7 @@ mod tests {
         assert_eq!(cookies.len(), 2);
     }
 
-    // =====================================================================
     // head + body together
-    // =====================================================================
 
     /// The overflow handed to the BodyReader must line up exactly with where the
     /// head parser stopped, whatever the read boundaries were.

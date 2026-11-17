@@ -6,11 +6,12 @@
 <title>Nukemichi</title>
 <style>
   :root {
-    --bg: #fbfaf7; --fg: #1d1c1a; --muted: #6b675f; --line: #dedad2;
+    color-scheme: light dark;
+    --bg: #fbfaf7; --fg: #1d1c1a; --muted: #6b675f; --line: #dedad2; --control-line: #8a857b;
     --accent: #7a3e1d; --ok: #2f6b3a; --bad: #9b2c2c; --code: #f1eee8;
   }
   @media (prefers-color-scheme: dark) {
-    :root { --bg: #161513; --fg: #ebe8e2; --muted: #9c978d; --line: #34312c; --accent: #e0a179; --ok: #8fc79a; --bad: #e59a9a; --code: #22201d; }
+    :root { --bg: #161513; --fg: #ebe8e2; --muted: #9c978d; --line: #34312c; --control-line: #7a766d; --accent: #e0a179; --ok: #8fc79a; --bad: #e59a9a; --code: #22201d; }
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; }
@@ -21,19 +22,24 @@
   section { border-top: 1px solid var(--line); padding: 16px 0; }
   h2 { font-size: 16px; margin: 0 0 8px; }
   .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-  input, select, button { font: inherit; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); }
+  /* 44px is the minimum tap target (R-03). Control edge uses --control-line for 3:1 non-text contrast. */
+  input:not([type=checkbox]), select, button { font: inherit; padding: 6px 10px; min-height: 44px; border: 1px solid var(--control-line); border-radius: 6px; background: var(--bg); color: var(--fg); }
   input[type=text] { flex: 1 1 280px; min-width: 0; }
+  input[type=checkbox] { flex: none; width: 22px; height: 22px; margin: 0; accent-color: var(--accent); }
+  label { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; }
   button { cursor: pointer; background: var(--accent); color: var(--bg); border-color: var(--accent); }
   button:disabled { opacity: .5; cursor: default; }
-  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button:focus-visible, input:focus-visible, select:focus-visible, pre:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   pre { background: var(--code); padding: 10px; border-radius: 6px; overflow: auto; max-height: 320px; margin: 8px 0 0; font-size: 13px; white-space: pre-wrap; word-break: break-word; }
-  .status { font-variant-numeric: tabular-nums; }
+  pre:empty { display: none; }
+  .status { font-variant-numeric: tabular-nums; margin: 8px 0 0; }
+  .hint { color: var(--muted); margin: 8px 0 0; }
   .ok { color: var(--ok); } .bad { color: var(--bad); }
 </style>
 </head>
 <body>
 <main>
-  <h1>Nukemichi <span>抜け道</span></h1>
+  <h1>Nukemichi <span lang="ja">抜け道</span></h1>
   <p class="lead">CORS-free HTTP and raw TCP from this page, through Tor (Arti in wasm, reached over Snowflake).</p>
 
   <section>
@@ -58,7 +64,9 @@
       <button id="go" disabled>Fetch through Tor</button>
       <button id="plain" disabled>Plain fetch</button>
     </div>
-    <pre id="fetchOut">–</pre>
+    <p class="hint" data-needs-tor>Start Tor in step 1 to enable these buttons.</p>
+    <p class="status" id="fetchStatus" aria-live="polite">No request sent yet.</p>
+    <pre id="fetchOut" tabindex="0" role="region" aria-label="Fetch response"></pre>
   </section>
 
   <section>
@@ -70,12 +78,15 @@
       <input type="text" id="tcpMsg" value="hello from nukemichi" aria-label="Line to send">
       <button id="tcpGo" disabled>Send line</button>
     </div>
-    <pre id="tcpOut">–</pre>
+    <p class="hint" data-needs-tor>Start Tor in step 1 to enable this button.</p>
+    <p class="status" id="tcpStatus" aria-live="polite">No connection made yet.</p>
+    <pre id="tcpOut" tabindex="0" role="region" aria-label="TCP reply"></pre>
   </section>
 
   <section>
     <h2>Log</h2>
-    <pre id="log"></pre>
+    <p class="hint" id="logEmpty">No log lines yet. They appear after you press Start.</p>
+    <pre id="log" tabindex="0" role="region" aria-label="Log"></pre>
   </section>
 </main>
 <script type="module">
@@ -86,7 +97,21 @@ const logLines = [];
 const log = (level, target, msg) => {
   logLines.push(`${(performance.now() / 1000).toFixed(1)}s ${level} ${target}: ${msg}`);
   if (logLines.length > 200) logLines.shift();
+  $('logEmpty').hidden = true;
   $('log').textContent = logLines.join('\n');
+};
+
+// Built with DOM nodes, not innerHTML: error messages can carry remote text.
+const setStatus = (cls, label, rest) => {
+  const span = document.createElement('span');
+  span.className = cls;
+  span.textContent = label;
+  $('status').replaceChildren(span, rest);
+};
+// The short summary goes in the live region; the long body goes in the scrollable <pre>.
+const out = (name, summary, body = '') => {
+  $(`${name}Status`).textContent = summary;
+  $(`${name}Out`).textContent = body;
 };
 
 $('start').onclick = async () => {
@@ -96,45 +121,48 @@ $('start').onclick = async () => {
   client = createClient({ transport: $('transport').value, worker: $('worker').checked, log, logLevel: 'info' });
   try {
     const t = await client.ready();
-    $('status').innerHTML = `<span class="ok">Ready</span> in ${((performance.now() - t0) / 1000).toFixed(1)} s.`;
+    setStatus('ok', 'Ready', ` in ${((performance.now() - t0) / 1000).toFixed(1)} s.`);
     for (const id of ['go', 'plain', 'tcpGo']) $(id).disabled = false;
+    for (const el of document.querySelectorAll('[data-needs-tor]')) el.hidden = true;
   } catch (e) {
-    $('status').innerHTML = `<span class="bad">Failed:</span> ${e.message}`;
+    setStatus('bad', 'Failed:', ` ${e.message}. Press Start to try again.`);
     $('start').disabled = false;
   }
 };
 
 const show = async (res, t0) => {
   const text = await res.text();
-  return `${res.status} in ${Math.round(performance.now() - t0)} ms, ${text.length} chars` +
-    `${res.redirected ? `, redirected to ${res.url}` : ''}\n` +
-    [...res.headers].map(([k, v]) => `${k}: ${v}`).join('\n') + '\n\n' + text.slice(0, 4000);
+  return [
+    `${res.status} in ${Math.round(performance.now() - t0)} ms, ${text.length} chars${res.redirected ? `, redirected to ${res.url}` : ''}`,
+    [...res.headers].map(([k, v]) => `${k}: ${v}`).join('\n') + '\n\n' + text.slice(0, 4000),
+  ];
 };
 
 $('go').onclick = async () => {
   const t0 = performance.now();
-  $('fetchOut').textContent = 'Fetching…';
-  try { $('fetchOut').textContent = await show(await client.fetch($('url').value), t0); }
-  catch (e) { $('fetchOut').textContent = `Error: ${e.message}`; }
+  out('fetch', 'Fetching…');
+  try { const [summary, body] = await show(await client.fetch($('url').value), t0); out('fetch', summary, body); }
+  catch (e) { out('fetch', `Error: ${e.message}. Check the URL and try again.`); }
 };
 $('plain').onclick = async () => {
   const t0 = performance.now();
-  try { $('fetchOut').textContent = await show(await fetch($('url').value), t0); }
-  catch (e) { $('fetchOut').textContent = `Plain fetch() failed, as expected without CORS: ${e.name}: ${e.message}`; }
+  out('fetch', 'Fetching…');
+  try { const [summary, body] = await show(await fetch($('url').value), t0); out('fetch', summary, body); }
+  catch (e) { out('fetch', `Plain fetch() failed, as expected without CORS: ${e.name}: ${e.message}`); }
 };
 
 $('tcpGo').onclick = async () => {
   const t0 = performance.now();
-  $('tcpOut').textContent = 'Connecting…';
+  out('tcp', 'Connecting…');
   try {
     const s = await client.connect($('tcpHost').value, Number($('tcpPort').value), { tls: $('tcpTls').checked });
     const w = s.writable.getWriter();
     const r = s.readable.getReader();
     await w.write(new TextEncoder().encode($('tcpMsg').value + '\n'));
     const { value } = await r.read();
-    $('tcpOut').textContent = `Got back in ${Math.round(performance.now() - t0)} ms:\n${new TextDecoder().decode(value)}`;
+    out('tcp', `Got a reply in ${Math.round(performance.now() - t0)} ms.`, new TextDecoder().decode(value));
     await w.close().catch(() => {});
-  } catch (e) { $('tcpOut').textContent = `Error: ${e.message}`; }
+  } catch (e) { out('tcp', `Error: ${e.message}. Check host and port, then try again.`); }
 };
 </script>
 </body>

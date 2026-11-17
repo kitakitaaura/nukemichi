@@ -1,16 +1,9 @@
-//! WASM-compatible runtime implementation for tor-rtcompat.
+//! A tor-rtcompat `Runtime` for the browser.
 //!
-//! This module provides a runtime that can run in WebAssembly environments (browsers).
-//! It implements the required traits for `Runtime` with some limitations:
-//!
-//! - **Blocking operations**: Stubbed - will panic if called. WASM has no threads.
-//! - **Networking**: Requires external transport (WebSocket/WebRTC)
-//! - **TLS**: Uses rustls with rustls-rustcrypto (pure-Rust crypto for WASM)
+//! Blocking operations panic (wasm has no threads), every connection goes
+//! through a JS connect function or Snowflake, and relay TLS is rustls with ring.
 
-/// A `Send` wrapper around a `!Send` future. Delegates polling through `SendWrapper`.
-///
-/// WASM is single-threaded, so `Send` is trivially satisfied.
-/// Panics if polled from a different thread (impossible on WASM).
+/// Makes a `!Send` future `Send` via `SendWrapper`; wasm has one thread.
 struct SendFut<F>(send_wrapper::SendWrapper<F>);
 
 impl<F: Future> Future for SendFut<F> {
@@ -22,9 +15,8 @@ impl<F: Future> Future for SendFut<F> {
     }
 }
 
-// This runtime was moved here from arti's tor-rtcompat::wasm module. It depends
-// only on tor-rtcompat's *public* API, so it lives in tor-js rather than in the
-// fork. The traits below are re-exported at the tor_rtcompat crate root...
+// Moved out of the arti fork's tor-rtcompat::wasm; it uses only public API.
+// These traits are re-exported at the tor_rtcompat crate root...
 use tor_rtcompat::{
     Blocking, CertifiedConn, CoarseInstant, CoarseTimeProvider, NetStreamListener,
     NetStreamProvider, RealCoarseTimeProvider, SleepProvider, StreamOps, TcpConnectOptions,
@@ -47,23 +39,15 @@ use web_time_compat::Instant;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tor_general_addr::unix;
 
-/// A runtime for WASM environments.
-///
-/// This runtime implements the traits required by `tor-rtcompat::Runtime`,
-/// but with significant limitations due to WASM constraints:
-///
-/// - No blocking operations (will panic)
-/// - No direct TCP/UDP sockets — use [`set_connect_fn`](WasmRuntime::set_connect_fn)
-///   to provide a JS callback for opening socket connections
-/// - No filesystem access
+/// The browser runtime. Connections go through [`set_connect_fn`](WasmRuntime::set_connect_fn)
+/// or Snowflake; there is no blocking, UDP or filesystem.
 #[derive(Clone)]
 pub struct WasmRuntime {
-    /// Coarse time provider
     coarse: RealCoarseTimeProvider,
     /// Optional JS callback for connecting to relay addresses.
-    /// Signature: `(addr: string) => Promise<{send, onmessage, onclose, close}>`
+    /// Signature: `(addr: string) => Promise<{readable, writable, close}>`
     connect_fn: Option<js_sys::Function>,
-    /// Nukemichi: bridge addresses that are reached through Snowflake.
+    /// Bridge addresses reached through Snowflake.
     /// Connections to these are wrapped in Turbo Tunnel + KCP + smux, and the
     /// JS connect function is asked for a *carrier* with the target
     /// `"snowflake:<addr>"` (a WebRTC data channel or a WebSocket).
@@ -83,7 +67,6 @@ impl Default for WasmRuntime {
 }
 
 impl WasmRuntime {
-    /// Create a new WASM runtime.
     pub fn new() -> Self {
         Self {
             coarse: RealCoarseTimeProvider::new(),
@@ -95,11 +78,7 @@ impl WasmRuntime {
     /// Set a JS callback for opening socket connections to relay addresses.
     ///
     /// The callback receives a target address string (e.g. `"198.51.100.1:9001"`)
-    /// and must return a `Promise` that resolves to a socket object with:
-    /// - `send(data: Uint8Array)` — send binary data
-    /// - `onmessage: ((data: Uint8Array) => void) | null` — receive callback
-    /// - `onclose: (() => void) | null` — close notification callback
-    /// - `close()` — close the socket
+    /// and must return a `Promise` of `{ readable, writable, close() }`.
     pub fn set_connect_fn(&mut self, f: js_sys::Function) {
         self.connect_fn = Some(f);
     }
@@ -167,18 +146,12 @@ impl StreamOps for NetStream {
     }
 }
 
-// ============================================================================
-// SleepProvider implementation
-// ============================================================================
-
 /// A sleep future for WASM using gloo-timers.
 pub struct WasmSleepFuture {
-    /// The underlying timeout future from gloo-timers
     inner: send_wrapper::SendWrapper<gloo_timers::future::TimeoutFuture>,
 }
 
 impl WasmSleepFuture {
-    /// Create a new sleep future.
     fn new(duration: Duration) -> Self {
         let millis = duration.as_millis().min(u128::from(u32::MAX)) as u32;
         Self {
@@ -218,19 +191,11 @@ impl SleepProvider for WasmRuntime {
     }
 }
 
-// ============================================================================
-// CoarseTimeProvider implementation
-// ============================================================================
-
 impl CoarseTimeProvider for WasmRuntime {
     fn now_coarse(&self) -> CoarseInstant {
         self.coarse.now_coarse()
     }
 }
-
-// ============================================================================
-// Spawn implementation
-// ============================================================================
 
 impl Spawn for WasmRuntime {
     fn spawn_obj(&self, future: futures::task::FutureObj<'static, ()>) -> Result<(), SpawnError> {
@@ -238,10 +203,6 @@ impl Spawn for WasmRuntime {
         Ok(())
     }
 }
-
-// ============================================================================
-// Blocking implementation (STUBBED - will panic)
-// ============================================================================
 
 impl Blocking for WasmRuntime {
     type ThreadHandle<T: Send + 'static> = StubThreadHandle<T>;
@@ -271,7 +232,6 @@ impl Blocking for WasmRuntime {
 
 /// Stub thread handle that will never be created (spawn_blocking panics).
 pub struct StubThreadHandle<T> {
-    /// Type marker for the result type.
     _phantom: std::marker::PhantomData<T>,
 }
 
@@ -284,19 +244,14 @@ impl<T: Send + 'static> Future for StubThreadHandle<T> {
     }
 }
 
-// ============================================================================
-// NetStreamProvider implementation (WebSocket proxy)
-// ============================================================================
-
 /// A stream backed by a JS socket object exposing WHATWG streams.
 ///
-/// The JS socket (e.g. `ArtiSocket` from the TS wrapper) must expose a
+/// The JS socket (see `js/src/pipe.js`) must expose a
 /// `readable` (`ReadableStream<Uint8Array>`), a `writable`
 /// (`WritableStream<Uint8Array>`), and a `close()` method. Data is pulled and
 /// pushed one chunk at a time so backpressure propagates end to end: arti only
 /// pulls from the network when it reads, and writes wait for the sink to drain.
 pub struct JsProxyStream {
-    /// The underlying JS socket object (e.g. ArtiSocket from the TS wrapper).
     socket: send_wrapper::SendWrapper<wasm_bindgen::JsValue>,
     /// Reader acquired from `socket.readable`.
     reader: send_wrapper::SendWrapper<web_sys::ReadableStreamDefaultReader>,
@@ -371,14 +326,8 @@ impl JsProxyStream {
 
 impl Drop for JsProxyStream {
     fn drop(&mut self) {
-        // Cancel the reader to unblock any pending read, then close the socket.
-        //
-        // reader.cancel() returns a Promise that REJECTS when the stream was
-        // already errored — which is the normal teardown order here: the KPS
-        // connection is usually closed (erroring its open streams, per KPS SPEC
-        // §9.2) before arti drops these stream objects. Dropping that rejected
-        // promise uncaught surfaces as an unhandledRejection and crashes Node,
-        // so drive it to completion and swallow the result.
+        // Cancel the reader, then close. cancel() rejects on an already-errored
+        // stream (the usual teardown order), so await it to keep that handled.
         wasm_bindgen_futures::spawn_local({
             let cancel = self.reader.cancel();
             async move { let _ = wasm_bindgen_futures::JsFuture::from(cancel).await; }
@@ -410,9 +359,7 @@ impl AsyncRead for JsProxyStream {
         }
 
         loop {
-            // Pull exactly one chunk on demand — no chunk is requested from the
-            // network until arti calls poll_read, which is what carries KPS
-            // backpressure back to the sender.
+            // Pull one chunk only when arti reads: that carries backpressure upstream.
             if this.pending_read.is_none() {
                 let promise = this.reader.read();
                 this.pending_read =
@@ -553,11 +500,8 @@ impl StreamOps for JsProxyStream {
     }
 }
 
-/// A no-op [`StreamOps`] handle.
-///
-/// tor-rtcompat ships `NoOpStreamOpsHandle` for this, but it's `#[non_exhaustive]`
-/// and so can't be constructed from outside that crate. Since `StreamOps` has
-/// all-default methods, a local unit type serves the same purpose.
+/// A no-op [`StreamOps`] handle (tor-rtcompat's `NoOpStreamOpsHandle` is
+/// `#[non_exhaustive]`, so it can't be built here).
 #[derive(Clone, Copy, Debug)]
 struct NoOpHandle;
 
@@ -682,11 +626,7 @@ impl NetStreamProvider<unix::SocketAddr> for WasmRuntime {
     }
 }
 
-// ============================================================================
-// TlsProvider implementation using rustls (with rustls-rustcrypto for WASM)
-// ============================================================================
-
-/// TLS connector for WASM using rustls with a pure-Rust crypto provider.
+/// Relay TLS connector (rustls).
 ///
 /// Configured for Tor's requirements:
 /// - Skips certificate verification (Tor validates via CERTS cells instead)
@@ -697,10 +637,6 @@ pub struct WasmTlsConnector {
 }
 
 impl WasmTlsConnector {
-    /// Create a new WASM TLS connector.
-    ///
-    /// This connector skips certificate verification since Tor uses its own
-    /// certificate validation via CERTS cells in the Tor protocol.
     pub fn new() -> Self {
         use futures_rustls::rustls;
 
@@ -793,13 +729,8 @@ where
     }
 }
 
-/// An uninhabitable TLS type for server-side TLS, which WASM does not support.
-///
-/// This wraps `void::Void` so it can never be constructed. All trait methods
-/// use `void::unreachable()` to prove at compile time that the code paths are
-/// impossible. This is the same pattern as `UnimplementedTls` in
-/// `impls/unimpl_tls.rs`, duplicated here because that module is not compiled
-/// for WASM targets.
+/// Uninhabited server-side TLS type (wasm has no TLS server). Mirrors
+/// `UnimplementedTls`, which is not compiled for wasm.
 #[derive(Clone, Debug)]
 pub struct WasmUnimplementedTls(void::Void);
 
@@ -888,14 +819,8 @@ where
     }
 }
 
-/// A newtype wrapper around `futures_rustls`'s client TLS stream.
-///
-/// arti needs the relay TLS stream to implement tor-rtcompat's [`StreamOps`]
-/// and [`CertifiedConn`]. Both those traits and
-/// `futures_rustls::client::TlsStream` are foreign to this crate, so the orphan
-/// rule forbids implementing them on the stream directly — that's only legal
-/// inside tor-rtcompat. Wrapping it in this local type lets us provide the
-/// impls here. (In arti the equivalent native impls live in impls/rustls.rs.)
+/// Local wrapper for `futures_rustls`'s client stream, so this crate can
+/// implement [`StreamOps`] and [`CertifiedConn`] for it (orphan rule).
 pub struct WasmTlsStream<S>(futures_rustls::client::TlsStream<S>);
 
 impl<S: AsyncRead + AsyncWrite + Unpin> AsyncRead for WasmTlsStream<S> {
@@ -955,10 +880,6 @@ where
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
     }
 }
-
-// ============================================================================
-// UdpProvider implementation (STUBBED)
-// ============================================================================
 
 /// A stub UDP socket that always returns errors.
 #[non_exhaustive]

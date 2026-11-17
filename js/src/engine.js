@@ -8,7 +8,7 @@ import { IndexedDBStorage, MemoryStorage } from './storage.js';
 
 let wasmReady = null;
 
-// --- content decoding (runs where the wasm lives: the worker by default) ----
+// Content decoding runs where the wasm lives (the worker by default).
 
 function nativeFormat(...names) {
   for (const n of names) { try { new DecompressionStream(n); return n; } catch {} }

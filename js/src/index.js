@@ -19,7 +19,7 @@ const NULL_BODY = new Set([101, 103, 204, 205, 304]);
 // can use the wasm brotli decoder where DecompressionStream lacks brotli.
 const ACCEPT_ENCODING = 'gzip, deflate, br';
 
-// --- request normalization ---------------------------------------------------
+// Request normalization
 
 async function normalize(input, init = {}) {
   const base = input instanceof Request ? input : null;
@@ -91,12 +91,23 @@ async function fetchWith(raw, input, init) {
   }
 }
 
-// --- engine hosts ------------------------------------------------------------
+// Engine hosts
+
+// A worker script must be same-origin, so when this module comes from a CDN,
+// start a blob worker that imports the real one (the CDN must allow CORS).
+function makeWorker(url) {
+  const u = new URL(url, location.href);
+  if (u.origin === location.origin) return new Worker(u, { type: 'module' });
+  const src = URL.createObjectURL(new Blob([`import ${JSON.stringify(u.href)};`], { type: 'text/javascript' }));
+  const w = new Worker(src, { type: 'module' });
+  setTimeout(() => URL.revokeObjectURL(src), 60000);
+  return w;
+}
 
 /** Run the engine in a dedicated worker; relay WebRTC from the main thread. */
 class WorkerHost {
   constructor(opts) {
-    this.worker = new Worker(opts.workerUrl ?? new URL('./worker.js', import.meta.url), { type: 'module' });
+    this.worker = makeWorker(opts.workerUrl ?? new URL('./worker.js', import.meta.url));
     this.seq = 0;
     this.pending = new Map();
     this.log = opts.log;
