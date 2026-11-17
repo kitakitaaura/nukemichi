@@ -1,8 +1,16 @@
 {
   "name": "nukemichi",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "CORS-free HTTP and raw TCP from a web page, through Tor (Arti in wasm over Snowflake).",
   "license": "MIT OR Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kitakitaaura/nukemichi.git"
+  },
+  "homepage": "https://github.com/kitakitaaura/nukemichi#readme",
+  "bugs": {
+    "url": "https://github.com/kitakitaaura/nukemichi/issues"
+  },
   "type": "module",
   "main": "./js/src/index.js",
   "browser": "./js/src/index.js",
