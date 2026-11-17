@@ -4,7 +4,7 @@
 import { chromium } from 'playwright';
 const transport = process.argv[2] || 'websocket';
 const kill = setTimeout(() => { console.log('TIMEOUT'); process.exit(2); }, 300000);
-const b = await chromium.launch();
+const b = await chromium.launch(process.env.CHANNEL ? { channel: process.env.CHANNEL } : {});
 const p = await b.newPage();
 await p.goto(`http://localhost:${process.env.PORT || 8766}/demo/poc.html`);
 await p.evaluate(() => {

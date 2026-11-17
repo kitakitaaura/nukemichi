@@ -6,7 +6,8 @@ import { appendFileSync } from 'node:fs';
 const [engineName = 'chromium', transport = 'websocket', runsArg = '1', outFile] = process.argv.slice(2);
 const bt = { chromium, firefox, webkit }[engineName];
 const URL_RTT = 'https://check.torproject.org/api/ip';
-const URL_1M = 'https://proof.ovh.net/files/1Mb.dat';
+// proof.ovh.net failed on 2 of 3 circuits (exit timeouts); see bench/probe-dl.mjs.
+const URL_1M = 'https://speed.cloudflare.com/__down?bytes=1048576';
 
 async function bootPage(ctx, opts) {
   const p = await ctx.newPage();
@@ -17,26 +18,28 @@ async function bootPage(ctx, opts) {
 
 const measureTraffic = (p) => p.evaluate(async ([URL_RTT, URL_1M]) => {
   const e = window.engine;
-  const r = { rtt: [] };
+  const r = { rtt: [], errors: [] };
   for (let i = 0; i < 6; i++) {
     const t0 = performance.now();
-    const res = await e.fetch(URL_RTT);
-    await res.text();
-    r.rtt.push(Math.round(performance.now() - t0));
+    try {
+      const res = await e.fetch(URL_RTT);
+      await res.text();
+      r.rtt.push(Math.round(performance.now() - t0));
+    } catch (err) { r.rtt.push(null); r.errors.push(`rtt: ${err.message.slice(0, 120)}`); }
   }
-  const t0 = performance.now();
-  const res = await e.fetch(URL_1M);
-  const rd = res.body.getReader();
-  let n = 0, tFirst = null;
-  for (;;) { const { value, done } = await rd.read(); if (done) break; if (tFirst === null) tFirst = performance.now(); n += value.length; }
-  const ms = performance.now() - t0;
-  r.download = { bytes: n, ms: Math.round(ms), ttfbMs: Math.round(tFirst - t0), kBps: Math.round(n / 1024 / (ms / 1000)) };
+  try {
+    const t0 = performance.now();
+    const res = await e.fetch(URL_1M);
+    const rd = res.body.getReader();
+    let n = 0, tFirst = null;
+    for (;;) { const { value, done } = await rd.read(); if (done) break; if (tFirst === null) tFirst = performance.now(); n += value.length; }
+    const ms = performance.now() - t0;
+    r.download = { bytes: n, ms: Math.round(ms), ttfbMs: Math.round(tFirst - t0), kBps: Math.round(n / 1024 / (ms / 1000)) };
+  } catch (err) { r.errors.push(`download: ${err.message.slice(0, 120)}`); }
   r.stats = e.stats();
   return r;
-}, [URL_RTT, URL_1M]);
-
-const runs = Number(runsArg);
-const b = await bt.launch();
+}, [URL_RTT, URL_1M]);const runs = Number(runsArg);
+const b = await bt.launch(process.env.CHANNEL ? { channel: process.env.CHANNEL } : {});
 for (let i = 0; i < runs; i++) {
   const kill = setTimeout(() => { console.log('TIMEOUT'); process.exit(2); }, 600000);
   const rec = { at: new Date().toISOString(), browser: `${engineName} ${b.version()}`, transport, run: i };
@@ -49,7 +52,7 @@ for (let i = 0; i < runs; i++) {
     await new Promise((r) => setTimeout(r, 1500)); // let the storage lock go
     const warm = await bootPage(ctx, {});
     const t0 = Date.now();
-    const first = await warm.p.evaluate(async (u) => { const t = performance.now(); const r = await window.engine.fetch(u); await r.text(); return Math.round(performance.now() - t); }, URL_RTT);
+    const first = await warm.p.evaluate(async (u) => { const t = performance.now(); try { const r = await window.engine.fetch(u); await r.text(); return Math.round(performance.now() - t); } catch { return null; } }, URL_RTT);
     rec.warm = { bootMs: Math.round(warm.boot.bootstrapMs), firstRequestMs: first };
     rec.warm.logTail = await warm.p.evaluate(() => window.logs.filter((l) => /dirmgr|Bootstrap complete/.test(l)).slice(0, 8));
     await warm.p.close();

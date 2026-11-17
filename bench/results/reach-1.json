@@ -1,0 +1,332 @@
+{
+ "at": "2026-11-17T03:42:25.056Z",
+ "browser": "chromium 141.0.7390.37",
+ "transport": "websocket",
+ "boot": {
+  "wasmMs": 8.5,
+  "bootstrapMs": 4449.300000000745,
+  "totalMs": 4457.800000000745,
+  "carriers": [
+   {
+    "transport": "websocket",
+    "ms": 541,
+    "at": 574.6999999992549
+   }
+  ]
+ },
+ "stats": {
+  "carriersOpened": 1,
+  "carriersLost": 0,
+  "redialFailures": 0,
+  "bytesIn": 3437254,
+  "bytesOut": 692620,
+  "status": "100%: connecting successfully; directory is usable, fresh until 2026-11-17 03:00:00 UTC, and valid until 2026-11-17 05:00:00 UTC"
+ },
+ "results": [
+  {
+   "round": 0,
+   "name": "Google",
+   "url": "https://www.google.com/",
+   "status": 200,
+   "finalUrl": "https://www.google.com/",
+   "bytes": 200000,
+   "server": "gws",
+   "outcome": "challenge",
+   "matched": "/captcha|recaptcha|hcaptcha|turnstile/i",
+   "title": "Google",
+   "ms": 1882
+  },
+  {
+   "round": 0,
+   "name": "Wikipedia",
+   "url": "https://en.wikipedia.org/wiki/Special:Random",
+   "status": 200,
+   "finalUrl": "https://en.wikipedia.org/wiki/Hot_Springs_County_School_District_Number_1",
+   "bytes": 83769,
+   "server": "mw-web.eqiad.main-798df4c8ff-47d97",
+   "outcome": "challenge",
+   "matched": "/captcha|recaptcha|hcaptcha|turnstile/i",
+   "title": "Hot Springs County School District Number 1 - Wikipedia",
+   "ms": 2496
+  },
+  {
+   "round": 0,
+   "name": "Wikipedia API",
+   "url": "https://en.wikipedia.org/w/api.php?action=query&meta=siteinfo&format=json",
+   "status": 200,
+   "finalUrl": "https://en.wikipedia.org/w/api.php?action=query&meta=siteinfo&format=json",
+   "bytes": 3035,
+   "server": "mw-api-ext.eqiad.main-7594759564-ptdqf",
+   "outcome": "ok",
+   "ms": 7682
+  },
+  {
+   "round": 0,
+   "name": "GitHub",
+   "url": "https://github.com/",
+   "status": 200,
+   "finalUrl": "https://github.com/",
+   "bytes": 200000,
+   "server": "github.com",
+   "outcome": "challenge",
+   "matched": "/captcha|recaptcha|hcaptcha|turnstile/i",
+   "title": "GitHub · Change is constant. GitHub keeps you ahead. · GitHub · GitHub",
+   "ms": 11529
+  },
+  {
+   "round": 0,
+   "name": "GitHub API",
+   "url": "https://api.github.com/repos/torproject/tor",
+   "status": 200,
+   "finalUrl": "https://api.github.com/repos/torproject/tor",
+   "bytes": 6696,
+   "server": "github.com",
+   "outcome": "ok",
+   "ms": 1157
+  },
+  {
+   "round": 0,
+   "name": "Reddit",
+   "url": "https://www.reddit.com/r/tor/.json?limit=1",
+   "status": 403,
+   "finalUrl": "https://www.reddit.com/r/tor/.json?limit=1",
+   "bytes": 189906,
+   "server": "snooserv",
+   "outcome": "challenge",
+   "matched": "/Access Denied|Request blocked|You have been blocked|blocked by network security/i",
+   "ms": 8434
+  },
+  {
+   "round": 0,
+   "name": "Amazon",
+   "url": "https://www.amazon.com/",
+   "status": 202,
+   "finalUrl": "https://www.amazon.com/",
+   "bytes": 2010,
+   "server": "CloudFront",
+   "outcome": "ok",
+   "title": "",
+   "ms": 2495
+  },
+  {
+   "round": 0,
+   "name": "Cloudflare site (cloudflare.com)",
+   "url": "https://www.cloudflare.com/",
+   "status": 200,
+   "finalUrl": "https://www.cloudflare.com/",
+   "bytes": 200000,
+   "server": "cloudflare",
+   "outcome": "challenge",
+   "matched": "/captcha|recaptcha|hcaptcha|turnstile/i",
+   "title": "Cloudflare: Build for the agent era",
+   "ms": 2852
+  },
+  {
+   "round": 0,
+   "name": "Stack Overflow",
+   "url": "https://stackoverflow.com/questions?pagesize=1",
+   "status": 403,
+   "finalUrl": "https://stackoverflow.com/questions?pagesize=1",
+   "bytes": 5813,
+   "server": "cloudflare",
+   "outcome": "challenge",
+   "matched": "/cf-chl|challenge-platform|Just a moment\\.\\.\\.|Attention Required! \\| Cloudflare|cf_chl_opt/i",
+   "title": "Just a moment...",
+   "ms": 3854
+  },
+  {
+   "round": 0,
+   "name": "YouTube",
+   "url": "https://www.youtube.com/",
+   "status": 200,
+   "finalUrl": "https://www.youtube.com/",
+   "bytes": 200000,
+   "server": "ESF",
+   "outcome": "ok",
+   "title": "YouTube",
+   "ms": 2836
+  },
+  {
+   "round": 0,
+   "name": "X / Twitter",
+   "url": "https://x.com/",
+   "status": 403,
+   "finalUrl": "https://x.com/",
+   "bytes": 0,
+   "server": "envoy",
+   "outcome": "http-error",
+   "ms": 1862
+  },
+  {
+   "round": 0,
+   "name": "Facebook",
+   "url": "https://www.facebook.com/",
+   "status": 400,
+   "finalUrl": "https://www.facebook.com/",
+   "bytes": 1542,
+   "server": null,
+   "outcome": "http-error",
+   "title": "Error",
+   "ms": 1846
+  },
+  {
+   "round": 0,
+   "name": "Instagram",
+   "url": "https://www.instagram.com/",
+   "outcome": "fail",
+   "error": "Error: The operation was aborted",
+   "ms": 60010
+  },
+  {
+   "round": 0,
+   "name": "LinkedIn",
+   "url": "https://www.linkedin.com/",
+   "status": 403,
+   "finalUrl": "https://www.linkedin.com/",
+   "bytes": 5695,
+   "server": "cloudflare",
+   "outcome": "challenge",
+   "matched": "/cf-chl|challenge-platform|Just a moment\\.\\.\\.|Attention Required! \\| Cloudflare|cf_chl_opt/i",
+   "title": "Just a moment...",
+   "ms": 2321
+  },
+  {
+   "round": 0,
+   "name": "Netflix",
+   "url": "https://www.netflix.com/",
+   "status": 200,
+   "finalUrl": "https://www.netflix.com/",
+   "bytes": 200000,
+   "server": "envoy",
+   "outcome": "ok",
+   "title": "Netflix - Watch TV Shows Online, Watch Movies Online",
+   "ms": 3466
+  },
+  {
+   "round": 0,
+   "name": "BBC",
+   "url": "https://www.bbc.com/news",
+   "outcome": "fail",
+   "error": "Error: The operation was aborted",
+   "ms": 60002
+  },
+  {
+   "round": 0,
+   "name": "New York Times",
+   "url": "https://www.nytimes.com/",
+   "status": 200,
+   "finalUrl": "https://www.nytimes.com/",
+   "bytes": 200000,
+   "server": "envoy",
+   "outcome": "challenge",
+   "matched": "/captcha|recaptcha|hcaptcha|turnstile/i",
+   "title": "The New York Times - Breaking News, US News, World News and Videos",
+   "ms": 2453
+  },
+  {
+   "round": 0,
+   "name": "Hacker News API",
+   "url": "https://hacker-news.firebaseio.com/v0/maxitem.json",
+   "outcome": "fail",
+   "error": "Error: TLS handshake failed with hacker-news.firebaseio.com: tls handshake eof",
+   "ms": 4155
+  },
+  {
+   "round": 0,
+   "name": "npm registry",
+   "url": "https://registry.npmjs.org/left-pad",
+   "status": 200,
+   "finalUrl": "https://registry.npmjs.org/left-pad",
+   "bytes": 22573,
+   "server": "cloudflare",
+   "outcome": "ok",
+   "ms": 13380
+  },
+  {
+   "round": 0,
+   "name": "PyPI JSON",
+   "url": "https://pypi.org/pypi/requests/json",
+   "outcome": "fail",
+   "error": "Error: The operation was aborted",
+   "ms": 60003
+  },
+  {
+   "round": 0,
+   "name": "crates.io API",
+   "url": "https://crates.io/api/v1/crates/serde",
+   "status": 200,
+   "finalUrl": "https://crates.io/api/v1/crates/serde",
+   "bytes": 200000,
+   "server": "Heroku",
+   "outcome": "ok",
+   "ms": 2272
+  },
+  {
+   "round": 0,
+   "name": "OpenStreetMap Nominatim",
+   "url": "https://nominatim.openstreetmap.org/search?q=Tokyo&format=json&limit=1",
+   "status": 429,
+   "finalUrl": "https://nominatim.openstreetmap.org/search?q=Tokyo&format=json&limit=1",
+   "bytes": 437,
+   "server": "Varnish",
+   "outcome": "http-error",
+   "title": "429 Unknown Error",
+   "ms": 3206
+  },
+  {
+   "round": 0,
+   "name": "Open-Meteo API",
+   "url": "https://api.open-meteo.com/v1/forecast?latitude=35.68&longitude=139.69&current=temperature_2m",
+   "outcome": "fail",
+   "error": "Error: The operation was aborted",
+   "ms": 60002
+  },
+  {
+   "round": 0,
+   "name": "CoinGecko API",
+   "url": "https://api.coingecko.com/api/v3/ping",
+   "status": 200,
+   "finalUrl": "https://api.coingecko.com/api/v3/ping",
+   "bytes": 34,
+   "server": "cloudflare",
+   "outcome": "ok",
+   "ms": 2532
+  },
+  {
+   "round": 0,
+   "name": "Ethereum RPC (Cloudflare)",
+   "url": "https://cloudflare-eth.com/",
+   "status": 200,
+   "finalUrl": "https://www.cloudflare.com/products/web3/",
+   "bytes": 200000,
+   "server": "cloudflare",
+   "outcome": "challenge",
+   "matched": "/captcha|recaptcha|hcaptcha|turnstile/i",
+   "title": "Cloudflare Web3 - Secure Web3 Infrastructure Solutions",
+   "ms": 8199
+  },
+  {
+   "round": 0,
+   "name": "DuckDuckGo",
+   "url": "https://html.duckduckgo.com/html/?q=tor",
+   "status": 202,
+   "finalUrl": "https://html.duckduckgo.com/html/?q=tor",
+   "bytes": 15078,
+   "server": "nginx",
+   "outcome": "ok",
+   "title": "DuckDuckGo",
+   "ms": 5271
+  },
+  {
+   "round": 0,
+   "name": "Archive.org",
+   "url": "https://archive.org/wayback/available?url=example.com",
+   "status": 200,
+   "finalUrl": "https://archive.org/wayback/available?url=example.com",
+   "bytes": 199,
+   "server": "nginx/1.26.3",
+   "outcome": "ok",
+   "ms": 1920
+  }
+ ]
+}

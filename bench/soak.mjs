@@ -8,7 +8,7 @@ const [engineName = 'chromium', transport = 'webrtc', minutesArg = '30'] = proce
 const bt = { chromium, firefox, webkit }[engineName];
 const minutes = Number(minutesArg);
 const kill = setTimeout(() => { console.error('TIMEOUT'); process.exit(2); }, (minutes + 10) * 60 * 1000);
-const b = await bt.launch();
+const b = await bt.launch(process.env.CHANNEL ? { channel: process.env.CHANNEL } : {});
 const p = await b.newPage();
 await p.goto(`http://localhost:${process.env.PORT || 8766}/demo/poc.html`);
 const result = await p.evaluate(async ({ transport, minutes }) => {

@@ -31,22 +31,22 @@ const TARGETS = [
   ['OpenStreetMap Nominatim', 'https://nominatim.openstreetmap.org/search?q=Tokyo&format=json&limit=1'],
   ['Open-Meteo API', 'https://api.open-meteo.com/v1/forecast?latitude=35.68&longitude=139.69&current=temperature_2m'],
   ['CoinGecko API', 'https://api.coingecko.com/api/v3/ping'],
-  ['Ethereum RPC (Cloudflare)', 'https://cloudflare-eth.com/'],
+  ['Coinbase API', 'https://api.coinbase.com/v2/prices/BTC-USD/spot'],
   ['DuckDuckGo', 'https://html.duckduckgo.com/html/?q=tor'],
   ['Archive.org', 'https://archive.org/wayback/available?url=example.com'],
 ];
 
+// Strict signals only: a page that merely loads reCAPTCHA is not a challenge.
 const CHALLENGE = [
-  /cf-chl|challenge-platform|Just a moment\.\.\.|Attention Required! \| Cloudflare|cf_chl_opt/i,
-  /captcha|recaptcha|hcaptcha|turnstile/i,
-  /unusual traffic from your computer network|\/sorry\/index/i,
-  /Access Denied|Request blocked|You have been blocked|blocked by network security/i,
-  /px-captcha|perimeterx|datadome|Pardon Our Interruption/i,
+  /<title>Just a moment\.\.\.<\/title>|cf-chl-|challenge-platform|<title>Attention Required! \| Cloudflare/i,
+  /\/sorry\/index|unusual traffic from your computer network/i,
+  /px-captcha|captcha-delivery\.com|datadome|Pardon Our Interruption/i,
+  /You have been blocked|blocked by network security|Request blocked\.|<title>Access Denied<\/title>/i,
 ];
 
 const rounds = Number(roundsArg);
 const kill = setTimeout(() => { console.error('TIMEOUT'); process.exit(2); }, 60 * 60 * 1000);
-const b = await bt.launch();
+const b = await bt.launch(process.env.CHANNEL ? { channel: process.env.CHANNEL } : {});
 const p = await b.newPage();
 await p.goto(`http://localhost:${process.env.PORT || 8766}/demo/poc.html`);
 const result = await p.evaluate(async ({ TARGETS, CHALLENGE_SRC, transport, rounds }) => {
@@ -73,7 +73,7 @@ const result = await p.evaluate(async ({ TARGETS, CHALLENGE_SRC, transport, roun
         rec.bytes = text.length;
         rec.server = res.headers.get('server');
         const hit = CHALLENGE.find((re) => re.test(text) || re.test(res.url));
-        if (hit && !(res.status === 200 && /json/.test(res.headers.get('content-type') ?? ''))) {
+        if (hit) {
           rec.outcome = 'challenge';
           rec.matched = String(hit);
         } else if (res.status >= 200 && res.status < 400) {

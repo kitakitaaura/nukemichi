@@ -1,0 +1,697 @@
+{
+ "at": "2026-11-17T04:04:46.172Z",
+ "browser": "chromium 141.0.7390.37",
+ "transport": "websocket",
+ "minutes": 30,
+ "summary": {
+  "samples": 90,
+  "ok": 90,
+  "failed": 0,
+  "distinctExitIps": 8,
+  "carriersOpened": 1,
+  "carriersLost": 0,
+  "redialFailures": 0,
+  "bytesIn": 2815030,
+  "bytesOut": 931183,
+  "status": "100%: connecting successfully; directory is usable, fresh until 2026-11-17 03:00:00 UTC, and valid until 2026-11-17 05:00:00 UTC; next directory is fetching a consensus"
+ },
+ "boot": {
+  "wasmMs": 14.600000001490116,
+  "bootstrapMs": 4227.800000000745,
+  "totalMs": 4242.400000002235,
+  "carriers": [
+   {
+    "transport": "websocket",
+    "ms": 527,
+    "at": 562
+   }
+  ]
+ },
+ "stats": {
+  "carriersOpened": 1,
+  "carriersLost": 0,
+  "redialFailures": 0,
+  "bytesIn": 2815030,
+  "bytesOut": 931183,
+  "status": "100%: connecting successfully; directory is usable, fresh until 2026-11-17 03:00:00 UTC, and valid until 2026-11-17 05:00:00 UTC; next directory is fetching a consensus"
+ },
+ "samples": [
+  {
+   "t": 4,
+   "kind": "http",
+   "ok": true,
+   "ip": "185.220.101.11",
+   "ms": 5725
+  },
+  {
+   "t": 24,
+   "kind": "http",
+   "ok": true,
+   "ip": "185.220.101.11",
+   "ms": 1769
+  },
+  {
+   "t": 44,
+   "kind": "tcp",
+   "ok": true,
+   "ms": 1942
+  },
+  {
+   "t": 64,
+   "kind": "http",
+   "ok": true,
+   "ip": "185.220.101.11",
+   "ms": 1155
+  },
+  {
+   "t": 84,
+   "kind": "http",
+   "ok": true,
+   "ip": "185.220.101.168",
+   "ms": 737
+  },
+  {
+   "t": 104,
+   "kind": "tcp",
+   "ok": true,
+   "ms": 1119
+  },
+  {
+   "t": 124,
+   "kind": "http",
+   "ok": true,
+   "ip": "151.242.30.113",
+   "ms": 897
+  },
+  {
+   "t": 144,
+   "kind": "http",
+   "ok": true,
+   "ip": "151.242.30.113",
+   "ms": 857
+  },
+  {
+   "t": 164,
+   "kind": "tcp",
+   "ok": true,
+   "ms": 789
+  },
+  {
+   "t": 184,
+   "kind": "http",
+   "ok": true,
+   "ip": "151.242.30.113",
+   "ms": 959
+  },
+  {
+   "t": 204,
+   "kind": "http",
+   "ok": true,
+   "ip": "151.242.30.113",
+   "ms": 1272
+  },
+  {
+   "t": 224,
+   "kind": "tcp",
+   "ok": true,
+   "ms": 794
+  },
+  {
+   "t": 244,
+   "kind": "http",
+   "ok": true,
+   "ip": "151.242.30.113",
+   "ms": 856
+  },
+  {
+   "t": 264,
+   "kind": "http",
+   "ok": true,
+   "ip": "151.242.30.113",
+   "ms": 1042
+  },
+  {
+   "t": 284,
+   "kind": "tcp",
+   "ok": true,
+   "ms": 829
+  },
+  {
+   "t": 304,
+   "kind": "http",
+   "ok": true,
+   "ip": "151.242.30.113",
+   "ms": 830
+  },
+  {
+   "t": 324,
+   "kind": "http",
+   "ok": true,
+   "ip": "151.242.30.113",
+   "ms": 1176
+  },
+  {
+   "t": 344,
+   "kind": "tcp",
+   "ok": true,
+   "ms": 846
+  },
+  {
+   "t": 364,
+   "kind": "http",
+   "ok": true,
+   "ip": "151.242.30.113",
+   "ms": 910
+  },
+  {
+   "t": 384,
+   "kind": "http",
+   "ok": true,
+   "ip": "151.242.30.113",
+   "ms": 821
+  },
+  {
+   "t": 404,
+   "kind": "tcp",
+   "ok": true,
+   "ms": 857
+  },
+  {
+   "t": 424,
+   "kind": "http",
+   "ok": true,
+   "ip": "151.242.30.113",
+   "ms": 962
+  },
+  {
+   "t": 444,
+   "kind": "http",
+   "ok": true,
+   "ip": "151.242.30.113",
+   "ms": 977
+  },
+  {
+   "t": 464,
+   "kind": "tcp",
+   "ok": true,
+   "ms": 838
+  },
+  {
+   "t": 484,
+   "kind": "http",
+   "ok": true,
+   "ip": "151.242.30.113",
+   "ms": 959
+  },
+  {
+   "t": 504,
+   "kind": "http",
+   "ok": true,
+   "ip": "151.242.30.113",
+   "ms": 872
+  },
+  {
+   "t": 524,
+   "kind": "tcp",
+   "ok": true,
+   "ms": 912
+  },
+  {
+   "t": 544,
+   "kind": "http",
+   "ok": true,
+   "ip": "151.242.30.113",
+   "ms": 1216
+  },
+  {
+   "t": 564,
+   "kind": "http",
+   "ok": true,
+   "ip": "151.242.30.113",
+   "ms": 1093
+  },
+  {
+   "t": 584,
+   "kind": "tcp",
+   "ok": true,
+   "ms": 723
+  },
+  {
+   "t": 604,
+   "kind": "http",
+   "ok": true,
+   "ip": "151.242.30.113",
+   "ms": 1126
+  },
+  {
+   "t": 624,
+   "kind": "http",
+   "ok": true,
+   "ip": "151.242.30.113",
+   "ms": 942
+  },
+  {
+   "t": 644,
+   "kind": "tcp",
+   "ok": true,
+   "ms": 800
+  },
+  {
+   "t": 664,
+   "kind": "http",
+   "ok": true,
+   "ip": "151.242.30.113",
+   "ms": 892
+  },
+  {
+   "t": 684,
+   "kind": "http",
+   "ok": true,
+   "ip": "151.242.30.113",
+   "ms": 1133
+  },
+  {
+   "t": 704,
+   "kind": "tcp",
+   "ok": true,
+   "ms": 736
+  },
+  {
+   "t": 724,
+   "kind": "http",
+   "ok": true,
+   "ip": "192.42.116.103",
+   "ms": 869
+  },
+  {
+   "t": 744,
+   "kind": "http",
+   "ok": true,
+   "ip": "192.42.116.103",
+   "ms": 897
+  },
+  {
+   "t": 764,
+   "kind": "tcp",
+   "ok": true,
+   "ms": 656
+  },
+  {
+   "t": 784,
+   "kind": "http",
+   "ok": true,
+   "ip": "192.42.116.103",
+   "ms": 836
+  },
+  {
+   "t": 804,
+   "kind": "http",
+   "ok": true,
+   "ip": "192.42.116.103",
+   "ms": 763
+  },
+  {
+   "t": 824,
+   "kind": "tcp",
+   "ok": true,
+   "ms": 784
+  },
+  {
+   "t": 844,
+   "kind": "http",
+   "ok": true,
+   "ip": "192.42.116.103",
+   "ms": 742
+  },
+  {
+   "t": 864,
+   "kind": "http",
+   "ok": true,
+   "ip": "192.42.116.103",
+   "ms": 836
+  },
+  {
+   "t": 884,
+   "kind": "tcp",
+   "ok": true,
+   "ms": 740
+  },
+  {
+   "t": 904,
+   "kind": "http",
+   "ok": true,
+   "ip": "192.42.116.103",
+   "ms": 787
+  },
+  {
+   "t": 924,
+   "kind": "http",
+   "ok": true,
+   "ip": "192.42.116.103",
+   "ms": 813
+  },
+  {
+   "t": 944,
+   "kind": "tcp",
+   "ok": true,
+   "ms": 702
+  },
+  {
+   "t": 964,
+   "kind": "http",
+   "ok": true,
+   "ip": "192.42.116.103",
+   "ms": 925
+  },
+  {
+   "t": 984,
+   "kind": "http",
+   "ok": true,
+   "ip": "192.42.116.103",
+   "ms": 915
+  },
+  {
+   "t": 1004,
+   "kind": "tcp",
+   "ok": true,
+   "ms": 805
+  },
+  {
+   "t": 1024,
+   "kind": "http",
+   "ok": true,
+   "ip": "192.42.116.103",
+   "ms": 842
+  },
+  {
+   "t": 1044,
+   "kind": "http",
+   "ok": true,
+   "ip": "192.42.116.103",
+   "ms": 843
+  },
+  {
+   "t": 1064,
+   "kind": "tcp",
+   "ok": true,
+   "ms": 695
+  },
+  {
+   "t": 1084,
+   "kind": "http",
+   "ok": true,
+   "ip": "192.42.116.103",
+   "ms": 830
+  },
+  {
+   "t": 1104,
+   "kind": "http",
+   "ok": true,
+   "ip": "192.42.116.103",
+   "ms": 976
+  },
+  {
+   "t": 1124,
+   "kind": "tcp",
+   "ok": true,
+   "ms": 772
+  },
+  {
+   "t": 1144,
+   "kind": "http",
+   "ok": true,
+   "ip": "192.42.116.103",
+   "ms": 1110
+  },
+  {
+   "t": 1164,
+   "kind": "http",
+   "ok": true,
+   "ip": "192.42.116.103",
+   "ms": 1096
+  },
+  {
+   "t": 1184,
+   "kind": "tcp",
+   "ok": true,
+   "ms": 752
+  },
+  {
+   "t": 1204,
+   "kind": "http",
+   "ok": true,
+   "ip": "192.42.116.103",
+   "ms": 982
+  },
+  {
+   "t": 1224,
+   "kind": "http",
+   "ok": true,
+   "ip": "192.42.116.103",
+   "ms": 965
+  },
+  {
+   "t": 1244,
+   "kind": "tcp",
+   "ok": true,
+   "ms": 722
+  },
+  {
+   "t": 1264,
+   "kind": "http",
+   "ok": true,
+   "ip": "192.42.116.103",
+   "ms": 729
+  },
+  {
+   "t": 1284,
+   "kind": "http",
+   "ok": true,
+   "ip": "192.42.116.103",
+   "ms": 913
+  },
+  {
+   "t": 1304,
+   "kind": "tcp",
+   "ok": true,
+   "ms": 1016
+  },
+  {
+   "t": 1324,
+   "kind": "http",
+   "ok": true,
+   "ip": "185.220.101.156",
+   "ms": 952
+  },
+  {
+   "t": 1344,
+   "kind": "http",
+   "ok": true,
+   "ip": "185.220.101.156",
+   "ms": 1034
+  },
+  {
+   "t": 1364,
+   "kind": "tcp",
+   "ok": true,
+   "ms": 783
+  },
+  {
+   "t": 1384,
+   "kind": "http",
+   "ok": true,
+   "ip": "185.220.101.156",
+   "ms": 715
+  },
+  {
+   "t": 1404,
+   "kind": "http",
+   "ok": true,
+   "ip": "185.220.101.156",
+   "ms": 759
+  },
+  {
+   "t": 1424,
+   "kind": "tcp",
+   "ok": true,
+   "ms": 771
+  },
+  {
+   "t": 1444,
+   "kind": "http",
+   "ok": true,
+   "ip": "185.220.101.3",
+   "ms": 1935
+  },
+  {
+   "t": 1464,
+   "kind": "http",
+   "ok": true,
+   "ip": "192.42.116.45",
+   "ms": 2792
+  },
+  {
+   "t": 1484,
+   "kind": "tcp",
+   "ok": true,
+   "ms": 742
+  },
+  {
+   "t": 1504,
+   "kind": "http",
+   "ok": true,
+   "ip": "192.42.116.45",
+   "ms": 959
+  },
+  {
+   "t": 1524,
+   "kind": "http",
+   "ok": true,
+   "ip": "192.42.116.45",
+   "ms": 4285
+  },
+  {
+   "t": 1544,
+   "kind": "tcp",
+   "ok": true,
+   "ms": 628
+  },
+  {
+   "t": 1564,
+   "kind": "http",
+   "ok": true,
+   "ip": "192.42.116.48",
+   "ms": 1754
+  },
+  {
+   "t": 1584,
+   "kind": "http",
+   "ok": true,
+   "ip": "192.42.116.48",
+   "ms": 1244
+  },
+  {
+   "t": 1604,
+   "kind": "tcp",
+   "ok": true,
+   "ms": 758
+  },
+  {
+   "t": 1624,
+   "kind": "http",
+   "ok": true,
+   "ip": "192.42.116.48",
+   "ms": 6126
+  },
+  {
+   "t": 1644,
+   "kind": "http",
+   "ok": true,
+   "ip": "192.42.116.48",
+   "ms": 1399
+  },
+  {
+   "t": 1664,
+   "kind": "tcp",
+   "ok": true,
+   "ms": 743
+  },
+  {
+   "t": 1684,
+   "kind": "http",
+   "ok": true,
+   "ip": "192.42.116.48",
+   "ms": 886
+  },
+  {
+   "t": 1704,
+   "kind": "http",
+   "ok": true,
+   "ip": "192.42.116.48",
+   "ms": 1444
+  },
+  {
+   "t": 1724,
+   "kind": "tcp",
+   "ok": true,
+   "ms": 768
+  },
+  {
+   "t": 1744,
+   "kind": "http",
+   "ok": true,
+   "ip": "192.42.116.48",
+   "ms": 1093
+  },
+  {
+   "t": 1764,
+   "kind": "http",
+   "ok": true,
+   "ip": "192.42.116.48",
+   "ms": 1157
+  },
+  {
+   "t": 1784,
+   "kind": "tcp",
+   "ok": true,
+   "ms": 659
+  }
+ ],
+ "events": [
+  {
+   "t": 0,
+   "level": "info",
+   "msg": "WasmRuntime: connecting to bridge 192.0.2.3:80 via Snowflake"
+  },
+  {
+   "t": 0,
+   "level": "info",
+   "msg": "snowflake: starting session"
+  },
+  {
+   "t": 1,
+   "level": "info",
+   "msg": "websocket carrier open in 527 ms"
+  },
+  {
+   "t": 1,
+   "level": "info",
+   "msg": "We have found that guard [192.x.x.x:80 $$2b…] is usable."
+  },
+  {
+   "t": 4,
+   "level": "info",
+   "msg": "We have enough information to build circuits."
+  },
+  {
+   "t": 5,
+   "level": "info",
+   "msg": "We have found that guard [192.x.x.x:80+ ed25519:1z…] is usable."
+  },
+  {
+   "t": 1466,
+   "level": "warn",
+   "msg": "TLS to check.torproject.org died (Received an END cell with reason CONNRESET); retrying on a new circuit (1/3)"
+  },
+  {
+   "t": 1466,
+   "level": "warn",
+   "msg": "TLS to check.torproject.org died (Received an END cell with reason CONNRESET); retrying on a new circuit (2/3)"
+  },
+  {
+   "t": 1536,
+   "level": "warn",
+   "msg": "All tunnel attempts failed due to timeout"
+  },
+  {
+   "t": 1536,
+   "level": "warn",
+   "msg": "Request failed"
+  },
+  {
+   "t": 1536,
+   "level": "warn",
+   "msg": "Failed to build preemptive circuit [scrubbed], error = Unable to find or build a tunnel: Spent too long trying to construct circuits for this request"
+  }
+ ]
+}
