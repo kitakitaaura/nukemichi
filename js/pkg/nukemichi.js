@@ -24,7 +24,7 @@ export class BrotliDecoder {
             throw takeFromExternrefTable0(ret[2]);
         }
         var v1 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+        wasm.__wbindgen_free_command_export(ret[0], ret[1] * 1, 1);
         return v1;
     }
     constructor() {
@@ -39,14 +39,14 @@ export class BrotliDecoder {
      * @returns {Uint8Array}
      */
     push(chunk) {
-        const ptr0 = passArray8ToWasm0(chunk, wasm.__wbindgen_malloc);
+        const ptr0 = passArray8ToWasm0(chunk, wasm.__wbindgen_malloc_command_export);
         const len0 = WASM_VECTOR_LEN;
         const ret = wasm.brotlidecoder_push(this.__wbg_ptr, ptr0, len0);
         if (ret[3]) {
             throw takeFromExternrefTable0(ret[2]);
         }
         var v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+        wasm.__wbindgen_free_command_export(ret[0], ret[1] * 1, 1);
         return v2;
     }
 }
@@ -208,7 +208,7 @@ export class TorClient {
             deferred1_1 = ret[1];
             return getStringFromWasm0(ret[0], ret[1]);
         } finally {
-            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+            wasm.__wbindgen_free_command_export(deferred1_0, deferred1_1, 1);
         }
     }
     /**
@@ -235,7 +235,7 @@ export class TorClient {
     connect(host, port, tls, init) {
         const val2 = +port;
         const val3 = +tls;
-        const ptr0 = passStringToWasm0(host, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const ptr0 = passStringToWasm0(host, wasm.__wbindgen_malloc_command_export, wasm.__wbindgen_realloc_command_export);
         const len0 = WASM_VECTOR_LEN;
         const ret = wasm.torclient_connect(this.__wbg_ptr, ptr0, len0, val2, val3, init);
         return ret;
@@ -262,7 +262,7 @@ export class TorClient {
      * @returns {Promise<any>}
      */
     fetch(url, init) {
-        const ptr0 = passStringToWasm0(url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const ptr0 = passStringToWasm0(url, wasm.__wbindgen_malloc_command_export, wasm.__wbindgen_realloc_command_export);
         const len0 = WASM_VECTOR_LEN;
         const ret = wasm.torclient_fetch(this.__wbg_ptr, ptr0, len0, init);
         return ret;
@@ -344,10 +344,10 @@ export class TorClientOptions {
         let ptr, ptr0, len0;
         try {
             ptr = this.__destroy_into_raw();
-            ptr0 = passStringToWasm0(line, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+            ptr0 = passStringToWasm0(line, wasm.__wbindgen_malloc_command_export, wasm.__wbindgen_realloc_command_export);
             len0 = WASM_VECTOR_LEN;
         } catch (e) {
-            if (ptr0) { wasm.__wbindgen_free(ptr0, len0 * 1, 1); }
+            if (ptr0) { wasm.__wbindgen_free_command_export(ptr0, len0 * 1, 1); }
             if (ptr) wasm.__wbg_torclientoptions_free(ptr, 1);
             throw e;
         }
@@ -382,7 +382,7 @@ if (Symbol.dispose) TorClientOptions.prototype[Symbol.dispose] = TorClientOption
  * @param {string | null} [log_level]
  */
 export function init(log_level) {
-    var ptr0 = isLikeNone(log_level) ? 0 : passStringToWasm0(log_level, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var ptr0 = isLikeNone(log_level) ? 0 : passStringToWasm0(log_level, wasm.__wbindgen_malloc_command_export, wasm.__wbindgen_realloc_command_export);
     var len0 = WASM_VECTOR_LEN;
     const ret = wasm.init(ptr0, len0);
     if (ret[1]) {
@@ -407,7 +407,7 @@ export function setLogCallback(callback) {
  * @param {string} level
  */
 export function setLogLevel(level) {
-    const ptr0 = passStringToWasm0(level, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const ptr0 = passStringToWasm0(level, wasm.__wbindgen_malloc_command_export, wasm.__wbindgen_realloc_command_export);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.setLogLevel(ptr0, len0);
     if (ret[1]) {
@@ -422,7 +422,7 @@ export function setLogLevel(level) {
 export function snowflakeStats() {
     const ret = wasm.snowflakeStats();
     var v1 = getArrayF64FromWasm0(ret[0], ret[1]).slice();
-    wasm.__wbindgen_free(ret[0], ret[1] * 8, 8);
+    wasm.__wbindgen_free_command_export(ret[0], ret[1] * 8, 8);
     return v1;
 }
 function __wbg_get_imports() {
@@ -434,7 +434,7 @@ function __wbg_get_imports() {
         },
         __wbg_String_8564e559799eccda: function(arg0, arg1) {
             const ret = String(arg1);
-            const ptr1 = passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+            const ptr1 = passStringToWasm0(ret, wasm.__wbindgen_malloc_command_export, wasm.__wbindgen_realloc_command_export);
             const len1 = WASM_VECTOR_LEN;
             getDataViewMemory0().setInt32((arg0 >>> 0) + 4 * 1, len1, true);
             getDataViewMemory0().setInt32((arg0 >>> 0) + 4 * 0, ptr1, true);
@@ -446,7 +446,7 @@ function __wbg_get_imports() {
         },
         __wbg___wbindgen_debug_string_f249a2a76caa9a55: function(arg0, arg1) {
             const ret = debugString(arg1);
-            const ptr1 = passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+            const ptr1 = passStringToWasm0(ret, wasm.__wbindgen_malloc_command_export, wasm.__wbindgen_realloc_command_export);
             const len1 = WASM_VECTOR_LEN;
             getDataViewMemory0().setInt32((arg0 >>> 0) + 4 * 1, len1, true);
             getDataViewMemory0().setInt32((arg0 >>> 0) + 4 * 0, ptr1, true);
@@ -489,7 +489,7 @@ function __wbg_get_imports() {
         __wbg___wbindgen_string_get_7ce8eee7fd327545: function(arg0, arg1) {
             const obj = arg1;
             const ret = typeof(obj) === 'string' ? obj : undefined;
-            var ptr1 = isLikeNone(ret) ? 0 : passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+            var ptr1 = isLikeNone(ret) ? 0 : passStringToWasm0(ret, wasm.__wbindgen_malloc_command_export, wasm.__wbindgen_realloc_command_export);
             var len1 = WASM_VECTOR_LEN;
             getDataViewMemory0().setInt32((arg0 >>> 0) + 4 * 1, len1, true);
             getDataViewMemory0().setInt32((arg0 >>> 0) + 4 * 0, ptr1, true);
@@ -591,7 +591,7 @@ function __wbg_get_imports() {
                 deferred0_1 = arg1;
                 console.error(getStringFromWasm0(arg0, arg1));
             } finally {
-                wasm.__wbindgen_free(deferred0_0, deferred0_1, 1);
+                wasm.__wbindgen_free_command_export(deferred0_0, deferred0_1, 1);
             }
         },
         __wbg_from_eac91875c8a5ffa4: function(arg0) {
@@ -878,7 +878,7 @@ function __wbg_get_imports() {
         },
         __wbg_stack_575c4e0918581b9c: function(arg0, arg1) {
             const ret = arg1.stack;
-            const ptr1 = passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+            const ptr1 = passStringToWasm0(ret, wasm.__wbindgen_malloc_command_export, wasm.__wbindgen_realloc_command_export);
             const len1 = WASM_VECTOR_LEN;
             getDataViewMemory0().setInt32((arg0 >>> 0) + 4 * 1, len1, true);
             getDataViewMemory0().setInt32((arg0 >>> 0) + 4 * 0, ptr1, true);
@@ -940,17 +940,17 @@ function __wbg_get_imports() {
             return ret;
         },
         __wbindgen_generic_0000000000000001: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Externref], shim_idx: 1554, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Externref], shim_idx: 1785, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm_bindgen_476d87d8982f52e1___convert__closures_____invoke___wasm_bindgen_476d87d8982f52e1___JsValue______true_);
             return ret;
         },
         __wbindgen_generic_0000000000000002: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Externref], shim_idx: 4041, ret: Result(Unit), inner_ret: Some(Result(Unit)) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Externref], shim_idx: 4531, ret: Result(Unit), inner_ret: Some(Result(Unit)) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm_bindgen_476d87d8982f52e1___convert__closures_____invoke___wasm_bindgen_476d87d8982f52e1___JsValue__core_37ee0ce0c4cd57d5___result__Result_____wasm_bindgen_476d87d8982f52e1___JsError___true_);
             return ret;
         },
         __wbindgen_generic_0000000000000003: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [], shim_idx: 1598, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [], shim_idx: 1829, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm_bindgen_476d87d8982f52e1___convert__closures_____invoke_______true_);
             return ret;
         },
@@ -1020,7 +1020,7 @@ const TorClientOptionsFinalization = (typeof FinalizationRegistry === 'undefined
     : new FinalizationRegistry(ptr => wasm.__wbg_torclientoptions_free(ptr, 1));
 
 function addToExternrefTable0(obj) {
-    const idx = wasm.__externref_table_alloc();
+    const idx = wasm.__externref_table_alloc_command_export();
     wasm.__wbindgen_externrefs.set(idx, obj);
     return idx;
 }
@@ -1033,7 +1033,7 @@ function _assertClass(instance, klass) {
 
 const CLOSURE_DTORS = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(state => wasm.__wbindgen_destroy_closure(state.a, state.b));
+    : new FinalizationRegistry(state => wasm.__wbindgen_destroy_closure_command_export(state.a, state.b));
 
 function debugString(val) {
     switch (typeof val) {
@@ -1137,7 +1137,7 @@ function handleError(f, args) {
         return f.apply(this, args);
     } catch (e) {
         const idx = addToExternrefTable0(e);
-        wasm.__wbindgen_exn_store(idx);
+        wasm.__wbindgen_exn_store_command_export(idx);
     }
 }
 
@@ -1164,7 +1164,7 @@ function makeMutClosure(arg0, arg1, f) {
     };
     real._wbg_cb_unref = () => {
         if (--state.cnt === 0) {
-            wasm.__wbindgen_destroy_closure(state.a, state.b);
+            wasm.__wbindgen_destroy_closure_command_export(state.a, state.b);
             state.a = 0;
             CLOSURE_DTORS.unregister(state);
         }
@@ -1219,7 +1219,7 @@ function passStringToWasm0(arg, malloc, realloc) {
 
 function takeFromExternrefTable0(idx) {
     const value = wasm.__wbindgen_externrefs.get(idx);
-    wasm.__externref_table_dealloc(idx);
+    wasm.__externref_table_dealloc_command_export(idx);
     return value;
 }
 

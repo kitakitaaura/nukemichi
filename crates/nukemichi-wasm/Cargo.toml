@@ -21,6 +21,8 @@ arti-client = { git = "https://github.com/voltrevo/arti", rev = "2527494a8961a75
     "experimental-api",
     # Nukemichi: connect via a bridge (Snowflake) instead of direct relay TCP.
     "bridge-client",
+    # Nukemichi: reach .onion services, which need no exit relay.
+    "onion-service-client",
 ]}
 tor-rtcompat = { git = "https://github.com/voltrevo/arti", rev = "2527494a8961a7522a36f96d9c0048096f657c88", default-features = false }
 tor-persist = { git = "https://github.com/voltrevo/arti", rev = "2527494a8961a7522a36f96d9c0048096f657c88", default-features = false }
