@@ -1,6 +1,6 @@
 {
   "name": "nukemichi",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "CORS-free HTTP and raw TCP from a web page, through Tor (Arti in wasm over Snowflake).",
   "license": "MIT OR Apache-2.0",
   "repository": {
