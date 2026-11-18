@@ -1,4 +1,4 @@
-// Which DecompressionStream formats does each engine support?
+// which decompressionstream formats does each engine support?
 import { chromium, firefox, webkit } from 'playwright';
 for (const [name, bt] of Object.entries({ chromium, firefox, webkit })) {
   const b = await bt.launch(process.env.CHANNEL ? { channel: process.env.CHANNEL } : {}); const p = await b.newPage(); await p.goto('http://localhost:8766/demo/poc.html');

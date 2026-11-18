@@ -1,7 +1,7 @@
-// Phase 2: HTTPS reach through Tor to popular sites and APIs.
-// One GET per target (plus redirects), no logins, small pages only.
+// phase 2: https reach through tor to popular sites and apis.
+// one get per target (plus redirects), no logins, small pages only.
 // Classifies each as ok / challenge (CAPTCHA or block page) / http-error / fail.
-// Usage: node bench/reach.mjs <chromium> <webrtc|websocket> [rounds] > bench/results/reach-<n>.json
+// usage: node bench/reach.mjs <chromium> <webrtc|websocket> [rounds] > bench/results/reach-<n>.json
 import { chromium, firefox, webkit } from 'playwright';
 const [engineName = 'chromium', transport = 'websocket', roundsArg = '1'] = process.argv.slice(2);
 const bt = { chromium, firefox, webkit }[engineName];
@@ -36,7 +36,7 @@ const TARGETS = [
   ['Archive.org', 'https://archive.org/wayback/available?url=example.com'],
 ];
 
-// Strict signals only: a page that merely loads reCAPTCHA is not a challenge.
+// strict signals only: a page that merely loads recaptcha is not a challenge.
 const CHALLENGE = [
   /<title>Just a moment\.\.\.<\/title>|cf-chl-|challenge-platform|<title>Attention Required! \| Cloudflare/i,
   /\/sorry\/index|unusual traffic from your computer network/i,
@@ -60,7 +60,7 @@ const result = await p.evaluate(async ({ TARGETS, CHALLENGE_SRC, transport, roun
       const t0 = performance.now();
       const rec = { round, name, url };
       try {
-        // A fresh isolation key per target: a fresh circuit, so one bad exit
+        // a fresh isolation key per target: a fresh circuit, so one bad exit
         // does not decide every result, and sites are not linked.
         const res = await c.fetch(url, {
           headers: { 'accept': 'text/html,application/json;q=0.9,*/*;q=0.8', 'accept-language': 'en-US,en;q=0.9' },

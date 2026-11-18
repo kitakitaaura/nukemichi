@@ -1,11 +1,11 @@
-// Nukemichi public API.
+// nukemichi public api.
 //
 //   import nukemichi from 'nukemichi';
 //   const res = await nukemichi.fetch('https://example.com/');   // no CORS needed
-//   const sock = await nukemichi.connect('tcpbin.com', 4242);    // raw TCP
+//   const sock = await nukemichi.connect('tcpbin.com', 4242);    // raw tcp
 //
-// By default the Tor engine runs in a dedicated worker. The page keeps only
-// WebRTC signaling (workers have no RTCPeerConnection) and byte relaying.
+// by default the tor engine runs in a dedicated worker. the page keeps only
+// webrtc signaling (workers have no rtcpeerconnection) and byte relaying.
 
 import {
   deserializeError, pipeReadableToPort, portToReadable, relayChannelToPort, writableToPort,
@@ -15,24 +15,24 @@ import { openDataChannel } from './snowflake.js';
 const REDIRECTS = new Set([301, 302, 303, 307, 308]);
 const NULL_BODY = new Set([101, 103, 204, 205, 304]);
 
-// Content decoding happens in the engine (engine.js decodeResponse), which
-// can use the wasm brotli decoder where DecompressionStream lacks brotli.
+// content decoding happens in the engine (engine.js decoderesponse), which
+// can use the wasm brotli decoder where decompressionstream lacks brotli.
 const ACCEPT_ENCODING = 'gzip, deflate, br';
 
-// Request normalization
+// request normalization
 
 async function normalize(input, init = {}) {
   const base = input instanceof Request ? input : null;
   const url = new URL(base ? base.url : String(input), globalThis.location?.href);
   if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new TypeError(`nukemichi.fetch: unsupported scheme ${url.protocol}`);
   const method = (init.method ?? base?.method ?? 'GET').toUpperCase();
-  // A standalone Headers object has no forbidden-header guard: callers may set
-  // Origin, Cookie, Referer, etc. That is the point of a CORS-free fetch.
+  // a standalone headers object has no forbidden-header guard: callers may set
+  // origin, cookie, referer, etc. that is the point of a cors-free fetch.
   const headers = new Headers(init.headers ?? base?.headers ?? undefined);
   let body = init.body !== undefined ? init.body : base?.body ?? null;
   if (body != null && !(body instanceof ReadableStream) && typeof body !== 'string' && !(body instanceof Uint8Array)) {
-    // Blob, FormData, URLSearchParams, ArrayBuffer, views: let the platform
-    // serialize them (and pick Content-Type, e.g. the multipart boundary).
+    // blob, formdata, urlsearchparams, arraybuffer, views: let the platform
+    // serialize them (and pick content-type, e.g. the multipart boundary).
     const r = new Request('https://x.invalid/', { method: 'POST', body });
     if (!headers.has('content-type') && r.headers.get('content-type')) headers.set('content-type', r.headers.get('content-type'));
     body = new Uint8Array(await r.arrayBuffer());
@@ -91,10 +91,10 @@ async function fetchWith(raw, input, init) {
   }
 }
 
-// Engine hosts
+// engine hosts
 
-// A worker script must be same-origin, so when this module comes from a CDN,
-// start a blob worker that imports the real one (the CDN must allow CORS).
+// a worker script must be same-origin, so when this module comes from a cdn,
+// start a blob worker that imports the real one (the cdn must allow cors).
 function makeWorker(url) {
   const u = new URL(url, location.href);
   if (u.origin === location.origin) return new Worker(u, { type: 'module' });
@@ -112,7 +112,7 @@ class WorkerHost {
     this.pending = new Map();
     this.log = opts.log;
     this.worker.onmessage = (ev) => this.onMessage(ev.data);
-    // A worker that fails to load (file:// pages, a CSP without blob:) reports
+    // a worker that fails to load (file:// pages, a csp without blob:) reports
     // only this event, with no message; fail every waiting call instead of hanging.
     this.worker.onerror = (e) => {
       this.failed = new Error(`nukemichi: worker failed${e.message ? `: ${e.message}` : ' to start'}`);

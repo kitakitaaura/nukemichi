@@ -1,7 +1,7 @@
-// Load Nukemichi the way a CDN user would: the page on one origin, the library
-// on another that sends Access-Control-Allow-Origin: * (as jsDelivr does).
-// Checks the <script> global (full and bare package URL) and the ES module, one request each.
-// Usage: node bench/cdn.mjs <chromium|firefox|webkit> [webrtc|websocket]
+// load nukemichi the way a cdn user would: the page on one origin, the library
+// on another that sends access-control-allow-origin: * (as jsdelivr does).
+// checks the <script> global (full and bare package url) and the es module, one request each.
+// usage: node bench/cdn.mjs <chromium|firefox|webkit> [webrtc|websocket]
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';

@@ -1,7 +1,7 @@
 import { sendInPieces } from './ports.js';
 
-// Byte-pipe helpers. A "socket" here is { readable, writable, close() }:
-// the shape the wasm runtime (JsProxyStream) consumes.
+// byte-pipe helpers. a "socket" here is { readable, writable, close() }:
+// the shape the wasm runtime (jsproxystream) consumes.
 
 /**
  * Wrap a message-oriented channel (WebSocket or RTCDataChannel) as a socket.
@@ -28,7 +28,7 @@ export function messageChannelSocket(ch, { highWater = 1 << 20, onClose } = {}) 
   ch.onclose = () => finish();
   ch.onerror = () => finish(new Error('carrier error'));
 
-  // Backpressure: wait while too much is buffered in the channel.
+  // backpressure: wait while too much is buffered in the channel.
   const drain = () => new Promise((resolve) => {
     if (ch.bufferedAmount < highWater || closed) return resolve();
     const t = setInterval(() => {

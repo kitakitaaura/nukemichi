@@ -1,6 +1,6 @@
-// Fetch .onion services through Nukemichi, next to the clearnet site for
-// comparison. An onion connection ends inside Tor, so no exit relay is used.
-// Usage: node bench/onion.mjs [chromium|firefox|webkit] [webrtc|websocket]
+// fetch .onion services through nukemichi, next to the clearnet site for
+// comparison. an onion connection ends inside tor, so no exit relay is used.
+// usage: node bench/onion.mjs [chromium|firefox|webkit] [webrtc|websocket]
 // Needs the repo served at http://localhost:${PORT:-8766}/.
 import { chromium, firefox, webkit } from 'playwright';
 const [engineName = 'chromium', transport = 'websocket'] = process.argv.slice(2);
@@ -15,7 +15,7 @@ const TARGETS = EXTRA || [
   ['Proton (onion)', 'https://protonmailrmez3lotccipshtkleegetolb73fuirgj7r4o4vfu7ozyd.onion/'],
   // Tor Project's onion serves plain HTTP only; https:// gets no stream.
   ['Tor Project (onion)', 'http://2gzyxa5ihm7nsggfxnu52rck2vv4rvmdlkiu3zzui5du4xyclen53wid.onion/'],
-  // Server rejects our TLS ClientHello (HandshakeFailure); cause unknown.
+  // server rejects our tls clienthello (handshakefailure); cause unknown.
   ['Facebook (onion)', 'https://www.facebookwkhpilnemxj7asaniu7vnjjbiltxjqhye3mhbshg7kx5tfyd.onion/'],
 ];
 

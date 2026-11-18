@@ -1,4 +1,4 @@
-// Usage: node bench/poc.mjs <chromium|firefox|webkit> <webrtc|websocket>
+// usage: node bench/poc.mjs <chromium|firefox|webkit> <webrtc|websocket>
 import { chromium, firefox, webkit } from 'playwright';
 const [engineName = 'chromium', transport = 'websocket'] = process.argv.slice(2);
 const bt = { chromium, firefox, webkit }[engineName];

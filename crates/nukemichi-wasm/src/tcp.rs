@@ -1,5 +1,5 @@
-//! Raw TCP (optionally TLS) streams through Tor, exposed to JS as a
-//! `{ readable, writable }` pair of WHATWG streams.
+//! raw tcp (optionally tls) streams through tor, exposed to js as a
+//! `{ readable, writable }` pair of whatwg streams.
 
 use std::sync::Arc;
 
@@ -11,14 +11,14 @@ use wasm_bindgen::JsCast;
 use crate::error::JsTorError;
 use crate::runtime::WasmRuntime;
 
-/// Turn an async byte stream into `{ readable, writable }` for JS.
+/// turn an async byte stream into `{ readable, writable }` for js.
 fn to_js_pair<S>(stream: S) -> Result<JsValue, JsValue>
 where
     S: AsyncRead + AsyncWrite + Unpin + 'static,
 {
     let (reader, writer) = stream.split();
 
-    // Read side: pull 16 KiB at a time on demand.
+    // read side: pull 16 kib at a time on demand.
     let read_stream = futures::stream::unfold(reader, |mut r| async move {
         let mut buf = vec![0u8; 16 * 1024];
         match r.read(&mut buf).await {
@@ -27,7 +27,7 @@ where
             Err(e) => Some((Err(JsValue::from(js_sys::Error::new(&format!("read failed: {e}")))), r)),
         }
     })
-    // Stop after the first error.
+    // stop after the first error.
     .scan(false, |errored, item: Result<JsValue, JsValue>| {
         if *errored {
             return futures::future::ready(None);
@@ -37,7 +37,7 @@ where
     });
     let readable = wasm_streams::ReadableStream::from_stream(read_stream).into_raw();
 
-    // Write side: each chunk must be a Uint8Array; close() half-closes.
+    // write side: each chunk must be a uint8array; close() half-closes.
     let sink = futures::sink::unfold(writer, |mut w, chunk: JsValue| async move {
         let arr: js_sys::Uint8Array = chunk
             .dyn_into()
@@ -58,8 +58,8 @@ where
     Ok(obj.into())
 }
 
-/// Connect to `host:port` through Tor. With `tls`, run a TLS client over the
-/// stream with full WebPKI validation for `host`.
+/// connect to `host:port` through tor. with `tls`, run a tls client over the
+/// stream with full webpki validation for `host`.
 pub async fn connect(
     client: &ArtiTorClient<WasmRuntime>,
     host: &str,
@@ -77,7 +77,7 @@ pub async fn connect(
         return to_js_pair(stream);
     }
 
-    // Same roots and verifier as fetch(), but no ALPN: the protocol is the
+    // same roots and verifier as fetch(), but no alpn: the protocol is the
     // caller's business here.
     let mut cfg = (*tls_config).clone();
     cfg.alpn_protocols.clear();

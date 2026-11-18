@@ -1,15 +1,15 @@
-//! Nukemichi: CORS-free HTTP and raw TCP from a web page, through Tor.
+//! nukemichi: cors-free http and raw tcp from a web page, through tor.
 //!
-//! Arti (arti-client) runs in wasm and reaches the Tor network through a
-//! Snowflake bridge. The browser only carries WebRTC (or WebSocket) traffic to
-//! Snowflake; a Tor exit opens the real TCP connection; TLS and HTTP run here.
+//! arti (arti-client) runs in wasm and reaches the tor network through a
+//! snowflake bridge. the browser only carries webrtc (or websocket) traffic to
+//! snowflake; a tor exit opens the real tcp connection; tls and http run here.
 //!
-//! Derived from tor-js (github.com/ethereum/tor-js, MIT OR Apache-2.0). See
-//! NOTICE at the repository root for what changed.
+//! derived from tor-js (github.com/ethereum/tor-js, mit or apache-2.0). see
+//! notice at the repository root for what changed.
 //!
-//! The JS API is `js/src/index.js`; this crate is its engine.
+//! the js api is `js/src/index.js`; this crate is its engine.
 
-// Also compiles for the host under `cfg(test)`, so the zip parser and HTTP
+// also compiles for the host under `cfg(test)`, so the zip parser and http
 // codec run under plain `cargo test`.
 #![cfg(any(target_arch = "wasm32", test))]
 
@@ -52,7 +52,6 @@ thread_local! {
     >>> = const { RefCell::new(None) };
 }
 
-/// Parse a log level string into a `LevelFilter`.
 fn parse_level(level: &str) -> Result<tracing_subscriber::filter::LevelFilter, JsValue> {
     match level {
         "trace" => Ok(tracing_subscriber::filter::LevelFilter::TRACE),
@@ -67,7 +66,7 @@ fn parse_level(level: &str) -> Result<tracing_subscriber::filter::LevelFilter, J
     }
 }
 
-/// Set up the panic hook and logging. Call once before creating a TorClient.
+/// set up the panic hook and logging. call once before creating a torclient.
 ///
 /// `log_level` is "trace", "debug", "info", "warn" or "error" (default
 /// "debug"); change it later with `setLogLevel()`.
@@ -95,9 +94,9 @@ pub fn init(log_level: Option<String>) -> Result<(), JsValue> {
     Ok(())
 }
 
-/// Dynamically update the minimum log level.
+/// dynamically update the minimum log level.
 ///
-/// Called from JS when the broadest requested level across all clients changes.
+/// called from js when the broadest requested level across all clients changes.
 #[wasm_bindgen(js_name = setLogLevel)]
 pub fn set_log_level(level: String) -> Result<(), JsValue> {
     let new_filter = parse_level(&level)?;
@@ -111,9 +110,9 @@ pub fn set_log_level(level: String) -> Result<(), JsValue> {
     })
 }
 
-/// Set a callback function to receive log messages
+/// set a callback function to receive log messages
 ///
-/// The callback receives three arguments: (level: string, target: string, message: string)
+/// the callback receives three arguments: (level: string, target: string, message: string)
 #[wasm_bindgen(js_name = setLogCallback)]
 pub fn set_log_callback(callback: js_sys::Function) {
     LOG_CALLBACK.with(|cb| {
@@ -121,7 +120,7 @@ pub fn set_log_callback(callback: js_sys::Function) {
     });
 }
 
-/// Custom tracing layer that forwards logs to JavaScript
+/// custom tracing layer that forwards logs to javascript
 struct JsLogLayer;
 
 impl<S> tracing_subscriber::Layer<S> for JsLogLayer
@@ -153,14 +152,13 @@ where
                     &JsValue::from_str(&visitor.message),
                 );
             } else {
-                // Fall back to console.log if no callback set
+                // fall back to console.log if no callback set
                 web_sys::console::log_1(&format!("[{}] {}: {}", level, target, visitor.message).into());
             }
         });
     }
 }
 
-/// Visitor to extract message from tracing events
 #[derive(Default)]
 struct MessageVisitor {
     message: String,
@@ -170,7 +168,7 @@ impl tracing::field::Visit for MessageVisitor {
     fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
         if field.name() == "message" {
             self.message = format!("{:?}", value);
-            // Remove surrounding quotes if present
+            // remove surrounding quotes if present
             self.message = self.message.trim_matches('"').to_string();
         } else if self.message.is_empty() {
             self.message = format!("{} = {:?}", field.name(), value);
@@ -190,25 +188,25 @@ impl tracing::field::Visit for MessageVisitor {
     }
 }
 
-/// Options for creating a TorClient
+/// options for creating a torclient
 #[wasm_bindgen]
 pub struct TorClientOptions {
-    /// JS callback: `(addr: string) => Promise<{ readable, writable, close() }>`.
+    /// js callback: `(addr: string) => Promise<{ readable, writable, close() }>`.
     connect: js_sys::Function,
-    /// Custom storage implementation (optional)
+    /// custom storage implementation (optional)
     storage: Option<JsStorageInterface>,
-    /// Optional callback returning bootstrap.zip bytes for fast directory pre-population
+    /// optional callback returning bootstrap.zip bytes for fast directory pre-population
     fast_bootstrap: Option<js_sys::Function>,
-    /// Bridge lines (`"192.0.2.3:80 <FINGERPRINT>"`), all reached via Snowflake.
+    /// bridge lines (`"192.0.2.3:80 <FINGERPRINT>"`), all reached via snowflake.
     bridges: Vec<String>,
 }
 
 #[wasm_bindgen]
 impl TorClientOptions {
-    /// Create options with a connect function.
+    /// create options with a connect function.
     ///
-    /// The connect function receives a target address string (e.g. "198.51.100.1:9001")
-    /// and must return a Promise of `{ readable, writable, close() }` (WHATWG
+    /// the connect function receives a target address string (e.g. "198.51.100.1:9001")
+    /// and must return a promise of `{ readable, writable, close() }` (whatwg
     /// byte streams; `js/src/snowflake.js` builds this function).
     #[wasm_bindgen(constructor)]
     pub fn new(connect: js_sys::Function) -> Self {
@@ -220,12 +218,12 @@ impl TorClientOptions {
         }
     }
 
-    /// Add a bridge reached through Snowflake.
+    /// add a bridge reached through snowflake.
     ///
     /// `line` is `"<addr>:<port> <RSA fingerprint>"`, e.g. the built-in
-    /// `"192.0.2.3:80 2B280B23E1107BB62ABFC40DDCC8824814F80A72"`. The address
+    /// `"192.0.2.3:80 2B280B23E1107BB62ABFC40DDCC8824814F80A72"`. the address
     /// is a placeholder that never hits the network: the runtime routes it to
-    /// Snowflake, and the connect function is asked for a carrier with the
+    /// snowflake, and the connect function is asked for a carrier with the
     /// target `"snowflake:<addr>:<port>"`.
     #[wasm_bindgen(js_name = withSnowflakeBridge)]
     pub fn with_snowflake_bridge(mut self, line: String) -> Self {
@@ -233,27 +231,27 @@ impl TorClientOptions {
         self
     }
 
-    /// Set a custom storage implementation for persistent state.
+    /// set a custom storage implementation for persistent state.
     ///
-    /// When set, the Tor client will persist guard selection and other state
+    /// when set, the tor client will persist guard selection and other state
     /// to this storage, allowing faster reconnection across page reloads.
     ///
-    /// If not set, in-memory storage is used (state lost on page reload).
+    /// if not set, in-memory storage is used (state lost on page reload).
     ///
-    /// `storage` implements the TorStorage interface (see `js/src/storage.js`).
+    /// `storage` implements the torstorage interface (see `js/src/storage.js`).
     #[wasm_bindgen(js_name = withStorage)]
     pub fn with_storage(mut self, storage: JsStorageInterface) -> Self {
         self.storage = Some(storage);
         self
     }
 
-    /// Set a callback that provides bootstrap.zip bytes for fast directory pre-population.
+    /// set a callback that provides bootstrap.zip bytes for fast directory pre-population.
     ///
-    /// The callback should be `() => Promise<Uint8Array>` returning the
+    /// the callback should be `() => Promise<Uint8Array>` returning the
     /// bootstrap archive from a tor-js-gateway server — either raw zip bytes
     /// or zstd-compressed (`bootstrap.zip.zst`); compression is auto-detected.
     ///
-    /// When set and storage has no cached consensus, the zip is parsed and the
+    /// when set and storage has no cached consensus, the zip is parsed and the
     /// directory cache is pre-populated before bootstrap begins.
     #[wasm_bindgen(js_name = withFastBootstrap)]
     pub fn with_fast_bootstrap(mut self, callback: js_sys::Function) -> Self {
@@ -262,21 +260,21 @@ impl TorClientOptions {
     }
 }
 
-/// Tor client for making HTTP requests through the Tor network
+/// tor client for making http requests through the tor network
 #[wasm_bindgen]
 pub struct TorClient {
     inner: Option<Arc<ArtiTorClient<WasmRuntime>>>,
     tls: tls::TlsConfigs,
-    /// `anonOptions.isolationKey` → Arti isolation group, with the key's own TLS
+    /// `anonOptions.isolationKey` → arti isolation group, with the key's own tls
     /// session cache (see isolation.rs, tls.rs).
     isolation: RefCell<IsolationGroups<(Arc<futures_rustls::rustls::ClientConfig>, conn::Slot)>>,
-    /// Circuit slot for requests without an isolation key.
+    /// circuit slot for requests without an isolation key.
     default_slot: conn::Slot,
 }
 
 #[wasm_bindgen]
 impl TorClient {
-    /// Bootstrap a client: `const client = await TorClient.create(options);`
+    /// bootstrap a client: `const client = await TorClient.create(options);`
     pub fn create(options: TorClientOptions) -> js_sys::Promise {
         wasm_bindgen_futures::future_to_promise(async move {
             let client = create_client(options).await?;
@@ -284,11 +282,11 @@ impl TorClient {
         })
     }
 
-    /// Make an HTTP fetch request through Tor
+    /// make an http fetch request through tor
     ///
-    /// Returns a Promise that resolves to a standard browser `Response` object
-    /// as soon as response headers are received. The body is a `ReadableStream`
-    /// that reads from the Tor circuit on demand.
+    /// returns a promise that resolves to a standard browser `Response` object
+    /// as soon as response headers are received. the body is a `ReadableStream`
+    /// that reads from the tor circuit on demand.
     #[wasm_bindgen(js_name = fetch, skip_typescript)]
     pub fn fetch(&self, url: String, init: JsValue) -> js_sys::Promise {
         let client = match &self.inner {
@@ -300,7 +298,7 @@ impl TorClient {
             }
         };
 
-        // Resolve the isolation group now: the map lives on this client, and the
+        // resolve the isolation group now: the map lives on this client, and the
         // future below must not borrow `self`.
         let (slot, tls_config) = match isolation_key_from_init(&init) {
             Ok(Some(key)) => match self.isolation.borrow_mut().group_for(&key, || (self.tls.for_new_key(), conn::Slot::new())) {
@@ -324,7 +322,7 @@ impl TorClient {
         })
     }
 
-    /// Wait until the client is ready for traffic (connection usable + valid directory).
+    /// wait until the client is ready for traffic (connection usable + valid directory).
     #[wasm_bindgen(js_name = ready)]
     pub fn ready(&self) -> js_sys::Promise {
         let client = match &self.inner {
@@ -356,11 +354,11 @@ impl TorClient {
         })
     }
 
-    /// Open a raw TCP stream through Tor, optionally wrapped in TLS.
+    /// open a raw tcp stream through tor, optionally wrapped in tls.
     ///
-    /// Resolves to `{ readable, writable }` (a `ReadableStream<Uint8Array>` and
-    /// a `WritableStream<Uint8Array>`). With `tls`, the server certificate is
-    /// checked against the Mozilla roots (webpki-roots) for `host`; there is no
+    /// resolves to `{ readable, writable }` (a `ReadableStream<Uint8Array>` and
+    /// a `WritableStream<Uint8Array>`). with `tls`, the server certificate is
+    /// checked against the mozilla roots (webpki-roots) for `host`; there is no
     /// way to turn that check off.
     #[wasm_bindgen(js_name = connect)]
     pub fn connect(&self, host: String, port: u16, tls: bool, init: JsValue) -> js_sys::Promise {
@@ -389,7 +387,7 @@ impl TorClient {
         })
     }
 
-    /// Arti's bootstrap status as text (for progress displays).
+    /// arti's bootstrap status as text (for progress displays).
     #[wasm_bindgen(js_name = bootstrapStatus)]
     pub fn bootstrap_status(&self) -> String {
         match &self.inner {
@@ -398,7 +396,7 @@ impl TorClient {
         }
     }
 
-    /// Close the TorClient and release resources
+    /// close the torclient and release resources
     #[wasm_bindgen(js_name = close)]
     pub fn close(&mut self) -> js_sys::Promise {
         self.inner = None;
@@ -414,8 +412,8 @@ async fn create_client(options: TorClientOptions) -> Result<TorClient, JsValue> 
     debug!("nukemichi {}", env!("CARGO_PKG_VERSION"));
     info!("Creating TorClient");
 
-    // With bridges (the normal case), every Tor channel goes to a Snowflake
-    // bridge; Arti never dials relays itself.
+    // with bridges (the normal case), every tor channel goes to a snowflake
+    // bridge; arti never dials relays itself.
     let mut config_builder = TorClientConfig::builder();
     let mut snowflake_addrs = Vec::new();
     if !options.bridges.is_empty() {
@@ -435,7 +433,7 @@ async fn create_client(options: TorClientOptions) -> Result<TorClient, JsValue> 
         }
     }
 
-    // Storage paths (required by config validation, but not used on WASM)
+    // storage paths (required by config validation, but not used on wasm)
     config_builder
         .storage()
         .cache_dir(CfgPath::new("/wasm/cache".to_owned()))
@@ -461,7 +459,7 @@ async fn create_client(options: TorClientOptions) -> Result<TorClient, JsValue> 
                 JsTorError::internal(format!("Failed to initialize storage: {:?}", e)).into_js_value()
             })?;
 
-        // Pre-populate directory cache from fast bootstrap if available and storage is empty
+        // pre-populate directory cache from fast bootstrap if available and storage is empty
         if let Some(callback) = options.fast_bootstrap {
             if let Err(e) = fast_bootstrap::maybe_fast_bootstrap(&cached_storage, callback).await {
                 tracing::warn!("Fast bootstrap failed (continuing normally): {:?}", e);
@@ -495,13 +493,13 @@ async fn create_client(options: TorClientOptions) -> Result<TorClient, JsValue> 
     })
 }
 
-/// Snowflake counters: `[carriersOpened, carriersLost, redialFailures, bytesIn, bytesOut]`.
+/// snowflake counters: `[carriersOpened, carriersLost, redialFailures, bytesIn, bytesOut]`.
 #[wasm_bindgen(js_name = snowflakeStats)]
 pub fn snowflake_stats() -> Vec<f64> {
     snowflake::stats_snapshot().to_vec()
 }
 
-/// rustls client config: Mozilla roots (webpki-roots), ring crypto, HTTP/1.1 ALPN.
+/// rustls client config: mozilla roots (webpki-roots), ring crypto, http/1.1 alpn.
 fn make_tls_config() -> futures_rustls::rustls::ClientConfig {
     use futures_rustls::rustls;
 
@@ -519,20 +517,20 @@ fn make_tls_config() -> futures_rustls::rustls::ClientConfig {
     config
 }
 
-/// Fetch init options from JavaScript
+/// fetch init options from javascript
 #[derive(Debug, Default, Deserialize)]
 struct FetchInit {
     method: Option<String>,
     headers: Option<HashMap<String, String>>,
-    // `body` is a JS object (bytes or a ReadableStream), not serde-decodable —
+    // `body` is a js object (bytes or a readablestream), not serde-decodable —
     // extracted separately via extract_body_from_js.
 }
 
-/// Perform a fetch request, returning a real browser `Response` object.
+/// perform a fetch request, returning a real browser `Response` object.
 ///
-/// The Response is created as soon as headers arrive. Its body is a
-/// `ReadableStream` that reads decoded body bytes from the Tor circuit
-/// on demand (handling Content-Length, chunked, and EOF framing).
+/// the response is created as soon as headers arrive. its body is a
+/// `ReadableStream` that reads decoded body bytes from the tor circuit
+/// on demand (handling content-length, chunked, and eof framing).
 async fn fetch_impl(
     client: &ArtiTorClient<WasmRuntime>,
     url_str: &str,
@@ -550,7 +548,7 @@ async fn fetch_impl(
             .map_err(|e| JsTorError::new("INVALID_OPTIONS", "validation", e.to_string(), false).into_js_value())?
     };
 
-    // Extract body and signal separately (JS objects; not handled by serde).
+    // extract body and signal separately (js objects; not handled by serde).
     let request_body = if init.is_undefined() || init.is_null() {
         fetch::RequestBody::None
     } else {
@@ -558,7 +556,7 @@ async fn fetch_impl(
     };
     let signal = extract_signal_from_js(&init)?;
 
-    // Parse method (normalize to uppercase per Fetch spec)
+    // parse method (normalize to uppercase per fetch spec)
     let method_upper = fetch_init.method.as_deref().map(str::to_ascii_uppercase);
     let method = match method_upper.as_deref() {
         Some("GET") | None => http::Method::GET,
@@ -589,10 +587,10 @@ async fn fetch_impl(
         .ok_or_else(|| JsTorError::new("INVALID_URL", "validation", "No port in URL", false).into_js_value())?;
     let is_https = url.scheme() == "https";
 
-    // Log only the origin: the full URL can carry credentials or API keys.
+    // log only the origin: the full url can carry credentials or api keys.
     info!("Fetching {}://{}:{} via Tor", url.scheme(), host, port);
 
-    // Reuse a pooled keep-alive connection when the request can be replayed
+    // reuse a pooled keep-alive connection when the request can be replayed
     // (a streamed body cannot); otherwise open one, retrying on new circuits.
     let key = conn::pool_key(is_https, host, port, &slot);
     let replayable = !matches!(request_body, fetch::RequestBody::Stream(_));
@@ -615,7 +613,7 @@ async fn fetch_impl(
             .await?,
         };
         let body = if reused {
-            // Keep a copy in case the pooled connection turns out to be stale.
+            // keep a copy in case the pooled connection turns out to be stale.
             match request_body.as_ref().unwrap() {
                 fetch::RequestBody::Bytes(b) => fetch::RequestBody::Bytes(b.clone()),
                 _ => fetch::RequestBody::None,
@@ -631,7 +629,7 @@ async fn fetch_impl(
         .await;
         match r {
             Ok(v) => break v,
-            // A pooled connection the server already closed: open a new one.
+            // a pooled connection the server already closed: open a new one.
             Err(_) if reused => {
                 debug!("Pooled connection was stale; opening a new one");
                 continue;
@@ -652,7 +650,7 @@ async fn fetch_impl(
             .map_err(|e| JsTorError::internal(format!("Failed to set header {}: {:?}", key, e)).into_js_value())?;
     }
 
-    // The signal is threaded through the unfold state so abort interrupts each chunk read.
+    // the signal is threaded through the unfold state so abort interrupts each chunk read.
     let body_stream = futures::stream::unfold((result.body_reader, signal), |(mut reader, sig)| async move {
         let chunk = abortable(sig.as_ref(), async { reader.read_chunk().await.map_err(|e| e.into_js_value()) }).await;
         match chunk {
@@ -701,8 +699,8 @@ fn extract_body_from_js(init: &JsValue) -> Result<fetch::RequestBody, JsValue> {
         return Ok(fetch::RequestBody::Bytes(arr.to_vec()));
     }
 
-    // Handle a ReadableStream<Uint8Array> — streamed with chunked encoding, so
-    // a large upload isn't buffered. Backpressure rides the underlying stream.
+    // handle a readablestream<uint8array> — streamed with chunked encoding, so
+    // a large upload isn't buffered. backpressure rides the underlying stream.
     if let Ok(rs) = body.clone().dyn_into::<web_sys::ReadableStream>() {
         use futures::StreamExt;
         let chunks = wasm_streams::ReadableStream::from_raw(rs)
@@ -731,9 +729,9 @@ fn extract_body_from_js(init: &JsValue) -> Result<fetch::RequestBody, JsValue> {
     .into_js_value())
 }
 
-/// Read `anonOptions.isolationKey` from a JavaScript FetchInit object, if present.
+/// read `anonOptions.isolationKey` from a javascript fetchinit object, if present.
 ///
-/// Read with Reflect rather than serde so a bad type is a clear validation
+/// read with reflect rather than serde so a bad type is a clear validation
 /// error instead of a generic deserialization failure.
 fn isolation_key_from_init(init: &JsValue) -> Result<Option<String>, JsValue> {
     let invalid = |message: &str| JsTorError::new("INVALID_OPTIONS", "validation", message, false).into_js_value();
@@ -750,8 +748,8 @@ fn isolation_key_from_init(init: &JsValue) -> Result<Option<String>, JsValue> {
     if value.is_undefined() {
         return Ok(None);
     }
-    // Ill-formed UTF-16 is refused: conversion to UTF-8 would map distinct
-    // keys (a lone surrogate, U+FFFD) to one group.
+    // ill-formed utf-16 is refused: conversion to utf-8 would map distinct
+    // keys (a lone surrogate, u+fffd) to one group.
     value
         .dyn_ref::<js_sys::JsString>()
         .filter(|key| key.is_valid_utf16())
@@ -759,7 +757,7 @@ fn isolation_key_from_init(init: &JsValue) -> Result<Option<String>, JsValue> {
         .ok_or_else(|| invalid("anonOptions.isolationKey must be a well-formed string"))
 }
 
-/// Extract an AbortSignal from a JavaScript FetchInit object.
+/// extract an abortsignal from a javascript fetchinit object.
 fn extract_signal_from_js(init: &JsValue) -> Result<Option<web_sys::AbortSignal>, JsValue> {
     if init.is_undefined() || init.is_null() {
         return Ok(None);
@@ -775,7 +773,7 @@ fn extract_signal_from_js(init: &JsValue) -> Result<Option<web_sys::AbortSignal>
         .map_err(|_| JsTorError::new("INVALID_OPTIONS", "validation", "signal must be an AbortSignal", false).into_js_value())
 }
 
-/// Return an abort error if the signal has already been triggered.
+/// return an abort error if the signal has already been triggered.
 fn check_aborted(signal: Option<&web_sys::AbortSignal>) -> Result<(), JsValue> {
     if let Some(s) = signal {
         if s.aborted() {
@@ -785,7 +783,7 @@ fn check_aborted(signal: Option<&web_sys::AbortSignal>) -> Result<(), JsValue> {
     Ok(())
 }
 
-/// Run `fut` unless `signal` aborts first, in which case `fut` is dropped
+/// run `fut` unless `signal` aborts first, in which case `fut` is dropped
 /// (closing whatever stream it owns) and an abort error is returned.
 async fn abortable<T>(
     signal: Option<&web_sys::AbortSignal>,
@@ -806,8 +804,8 @@ async fn abortable<T>(
         .unwrap_or_else(|| Err(JsTorError::aborted().into_js_value()))
 }
 
-/// Run `fut` unless `abort` resolves first, in which case `fut` is dropped and
-/// `None` is returned. `abort` is polled first, so an abort wins over I/O that
+/// run `fut` unless `abort` resolves first, in which case `fut` is dropped and
+/// `None` is returned. `abort` is polled first, so an abort wins over i/o that
 /// completes in the same wakeup.
 async fn unless_aborted<F: std::future::Future>(
     abort: impl std::future::Future,
@@ -820,7 +818,7 @@ async fn unless_aborted<F: std::future::Future>(
     }
 }
 
-/// An `abort` listener that unregisters itself before its closure is freed,
+/// an `abort` listener that unregisters itself before its closure is freed,
 /// including when the future holding it is dropped mid-await.
 struct AbortListener<'a> {
     signal: &'a web_sys::AbortSignal,

@@ -1,18 +1,18 @@
-//! The TLS configurations a client fetches with.
+//! the tls configurations a client fetches with.
 //!
-//! A rustls configuration carries a session cache, and a server recognises a
-//! resumed session: the ticket it issued earlier comes back. Resuming a session
+//! a rustls configuration carries a session cache, and a server recognises a
+//! resumed session: the ticket it issued earlier comes back. resuming a session
 //! under one isolation key that was made under another would let the server
-//! link requests that left on separate circuits. So each key gets a
+//! link requests that left on separate circuits. so each key gets a
 //! configuration with a session cache of its own, made with the key's isolation
-//! group (isolation.rs), and requests without a key share one more. Within a
+//! group (isolation.rs), and requests without a key share one more. within a
 //! key, sessions resume as usual.
 
 use std::sync::Arc;
 
 use futures_rustls::rustls::{client::Resumption, ClientConfig};
 
-/// Sessions remembered per key. A key is typically one identity talking to a
+/// sessions remembered per key. a key is typically one identity talking to a
 /// few servers; rustls's default for a whole client is 256.
 const SESSIONS_PER_KEY: usize = 16;
 
@@ -29,16 +29,16 @@ impl TlsConfigs {
         }
     }
 
-    /// The configuration requests without an isolation key share.
+    /// the configuration requests without an isolation key share.
     pub(crate) fn unkeyed(&self) -> Arc<ClientConfig> {
         Arc::clone(&self.unkeyed)
     }
 
-    /// A configuration with an empty session cache of its own, for one
+    /// a configuration with an empty session cache of its own, for one
     /// isolation key's requests.
     pub(crate) fn for_new_key(&self) -> Arc<ClientConfig> {
         let mut config = self.base.clone();
-        // A cloned configuration shares the original's session store; give
+        // a cloned configuration shares the original's session store; give
         // this one its own.
         config.resumption = Resumption::in_memory_sessions(SESSIONS_PER_KEY);
         Arc::new(config)
@@ -77,7 +77,7 @@ mod tests {
         (TlsConfigs::new(client), Arc::new(server))
     }
 
-    /// A full TLS exchange in memory, through the session tickets the server
+    /// a full tls exchange in memory, through the session tickets the server
     /// sends after the handshake.
     fn handshake(client: Arc<ClientConfig>, server: &Arc<ServerConfig>) -> HandshakeKind {
         let mut client = ClientConnection::new(client, ServerName::try_from("localhost").unwrap()).unwrap();
@@ -101,13 +101,13 @@ mod tests {
         let (tls, server) = configs();
         let (a, b) = (tls.for_new_key(), tls.for_new_key());
 
-        // Requests without a key resume among themselves.
+        // requests without a key resume among themselves.
         assert_eq!(handshake(tls.unkeyed(), &server), HandshakeKind::Full);
         assert_eq!(handshake(tls.unkeyed(), &server), HandshakeKind::Resumed);
-        // A key has none of their sessions, then resumes its own.
+        // a key has none of their sessions, then resumes its own.
         assert_eq!(handshake(Arc::clone(&a), &server), HandshakeKind::Full);
         assert_eq!(handshake(Arc::clone(&a), &server), HandshakeKind::Resumed);
-        // Another key has neither theirs nor key a's.
+        // another key has neither theirs nor key a's.
         assert_eq!(handshake(Arc::clone(&b), &server), HandshakeKind::Full);
         assert_eq!(handshake(b, &server), HandshakeKind::Resumed);
     }

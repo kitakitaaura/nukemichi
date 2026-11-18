@@ -1,5 +1,5 @@
-// Worker entry: runs the Tor engine (wasm Arti, TLS, HTTP) off the main
-// thread. The main thread only does what workers cannot: WebRTC signaling.
+// worker entry: runs the tor engine (wasm arti, tls, http) off the main
+// thread. the main thread only does what workers cannot: webrtc signaling.
 
 import { createEngine } from './engine.js';
 import {
@@ -16,7 +16,7 @@ const reply = (id, value, transfer) => postMessage({ id, ok: true, value }, tran
 const fail = (id, e) => postMessage({ id, ok: false, error: serializeError(e) });
 const log = (level, target, msg) => postMessage({ log: [level, target, msg] });
 
-// Ask the main thread for a WebRTC data channel; bytes come over a port.
+// ask the main thread for a webrtc data channel; bytes come over a port.
 function openRtcViaMain(fingerprint) {
   const rid = ++rtcSeq;
   return new Promise((resolve, reject) => {
@@ -74,5 +74,5 @@ onmessage = async (ev) => {
   try { await op(m.id, m.args ?? {}); } catch (e) { fail(m.id, e); }
 };
 
-// Exported only so bundlers keep the module; unused.
+// exported only so bundlers keep the module; unused.
 export { writableToPort };

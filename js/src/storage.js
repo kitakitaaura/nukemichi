@@ -1,7 +1,7 @@
-// Persistent storage for Arti's state and directory cache.
-// Implements the interface crates/nukemichi-wasm/src/storage.rs expects:
-// get, set, delete, keys, getAll, tryLock, unlock (all async).
-// Adapted from tor-js (MIT OR Apache-2.0).
+// persistent storage for arti's state and directory cache.
+// implements the interface crates/nukemichi-wasm/src/storage.rs expects:
+// get, set, delete, keys, getall, trylock, unlock (all async).
+// adapted from tor-js (mit or apache-2.0).
 
 function req(r) {
   return new Promise((resolve, reject) => {
@@ -44,7 +44,7 @@ export class IndexedDBStorage {
     const [keys, vals] = await Promise.all([req(s.getAllKeys(range)), req(s.getAll(range))]);
     return keys.map((k, i) => [k, vals[i]]);
   }
-  // One writer per origin: Arti's state must not be written by two tabs.
+  // one writer per origin: arti's state must not be written by two tabs.
   async tryLock() {
     if (this.release) return false;
     if (!globalThis.navigator?.locks) { this.release = () => {}; return true; }

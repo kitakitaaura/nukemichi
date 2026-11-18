@@ -1,5 +1,5 @@
-// Phase 1 API checks through the public module (js/src/index.js).
-// Usage: node bench/api.mjs <chromium|firefox|webkit> <webrtc|websocket> <worker|inline>
+// phase 1 api checks through the public module (js/src/index.js).
+// usage: node bench/api.mjs <chromium|firefox|webkit> <webrtc|websocket> <worker|inline>
 import { chromium, firefox, webkit } from 'playwright';
 const [engineName = 'chromium', transport = 'websocket', mode = 'worker'] = process.argv.slice(2);
 const bt = { chromium, firefox, webkit }[engineName];
@@ -42,8 +42,8 @@ const out = await p.evaluate(async ({ transport, mode }) => {
     setTimeout(() => ac.abort(), 1500);
     try { await pr; return { aborted: false }; } catch (e) { return { aborted: e.name === 'AbortError' || /abort/i.test(e.message), err: e.name }; }
   });
-  // Certificate checks. badssl.com often times out at exits, so also use a
-  // name the server's certificate does not cover: GitHub by IP address.
+  // certificate checks. badssl.com often times out at exits, so also use a
+  // name the server's certificate does not cover: github by ip address.
   await step('badCertIpNoSan', async () => { try { await c.fetch('https://140.82.113.3/'); return { rejected: false }; } catch (e) { return { rejected: /certificate|NotValidForName|invalid peer/i.test(e.message), err: e.message.slice(0, 160) }; } });
   await step('badCertExpired', async () => { try { await c.fetch('https://expired.badssl.com/', { anonOptions: { isolationKey: 'badssl-1' } }); return { rejected: false }; } catch (e) { return { rejected: /certificate|expired/i.test(e.message), err: e.message.slice(0, 160) }; } });
   await step('badCertSelfSigned', async () => { try { await c.fetch('https://self-signed.badssl.com/', { anonOptions: { isolationKey: 'badssl-2' } }); return { rejected: false }; } catch (e) { return { rejected: /certificate|UnknownIssuer/i.test(e.message), err: e.message.slice(0, 160) }; } });

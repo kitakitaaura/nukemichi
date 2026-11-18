@@ -1,6 +1,6 @@
-//! HTTP/1.1 over a Tor stream (TLS-wrapped for HTTPS).
+//! http/1.1 over a tor stream (tls-wrapped for https).
 //!
-//! A fetch resolves once the response head arrives; the body is read on
+//! a fetch resolves once the response head arrives; the body is read on
 //! demand with `read_chunk()`.
 
 use crate::error::JsTorError;
@@ -12,16 +12,16 @@ use std::pin::Pin;
 use tracing::{debug, info};
 use url::Url;
 
-/// A request body.
+/// a request body.
 pub enum RequestBody {
     None,
-    /// A fully-materialized body, sent with `Content-Length`.
+    /// a fully-materialized body, sent with `Content-Length`.
     Bytes(Vec<u8>),
-    /// A streaming body, sent chunked. Not `Send`: JS-backed streams are `!Send`.
+    /// a streaming body, sent chunked. not `Send`: js-backed streams are `!Send`.
     Stream(Pin<Box<dyn Stream<Item = Result<Vec<u8>, JsTorError>>>>),
 }
 
-/// Get navigator.userAgent if available (returns None in Node.js/Deno).
+/// get navigator.useragent if available (returns none in node.js/deno).
 #[cfg(not(test))]
 fn get_navigator_user_agent() -> Option<String> {
     let navigator = js_sys::Reflect::get(&js_sys::global(), &"navigator".into()).ok()?;
@@ -32,14 +32,13 @@ fn get_navigator_user_agent() -> Option<String> {
     ua.as_string()
 }
 
-/// Under `cargo test` there is no JS global to reach for, so this stands in for
-/// the Node.js/Deno case (no `navigator`, therefore no `User-Agent`).
+/// under `cargo test` there is no js global to reach for, so this stands in for
+/// the node.js/deno case (no `navigator`, therefore no `User-Agent`).
 #[cfg(test)]
 fn get_navigator_user_agent() -> Option<String> {
     None
 }
 
-/// Check if a header key exists in the map (case-insensitive).
 fn has_header(headers: &HashMap<String, String>, name: &str) -> bool {
     let lower = name.to_ascii_lowercase();
     headers.keys().any(|k| k.to_ascii_lowercase() == lower)
@@ -47,17 +46,17 @@ fn has_header(headers: &HashMap<String, String>, name: &str) -> bool {
 
 const MAX_HEADER_SIZE: usize = 64 * 1024;
 
-/// A connection we can send a request on and read the response from.
+/// a connection we can send a request on and read the response from.
 pub trait Conn: futures::io::AsyncRead + futures::io::AsyncWrite + Unpin {}
 impl<T: futures::io::AsyncRead + futures::io::AsyncWrite + Unpin> Conn for T {}
 
 pub type BoxedReader = Box<dyn Conn>;
 
-/// Callback that receives a connection whose response was fully read and
+/// callback that receives a connection whose response was fully read and
 /// which the server allows to be reused (keep-alive pool).
 pub type OnReusable = Box<dyn FnOnce(BoxedReader)>;
 
-/// Placeholder left behind when a connection is handed back to the pool.
+/// placeholder left behind when a connection is handed back to the pool.
 struct Spent;
 impl futures::io::AsyncRead for Spent {
     fn poll_read(self: Pin<&mut Self>, _: &mut std::task::Context<'_>, _: &mut [u8]) -> std::task::Poll<std::io::Result<usize>> {
@@ -76,39 +75,39 @@ impl futures::io::AsyncWrite for Spent {
     }
 }
 
-/// How the response body is framed.
+/// how the response body is framed.
 #[derive(Debug, PartialEq, Eq)]
 pub enum BodyFraming {
-    /// Content-Length header present: read exactly N bytes.
+    /// content-length header present: read exactly n bytes.
     ContentLength(usize),
-    /// Transfer-Encoding: chunked.
+    /// transfer-encoding: chunked.
     Chunked,
-    /// No framing info: read until EOF (Connection: close).
+    /// no framing info: read until eof (connection: close).
     UntilEof,
-    /// No body expected (HEAD response, 204, 304, 1xx).
+    /// no body expected (head response, 204, 304, 1xx).
     None,
 }
 
-/// Result of the header phase of a fetch request.
+/// result of the header phase of a fetch request.
 pub struct FetchHeadersResult {
     pub status: u16,
     pub headers: Vec<(String, String)>,
     pub body_reader: BodyReader,
 }
 
-/// Reads a response body, starting with any bytes read past the head.
+/// reads a response body, starting with any bytes read past the head.
 pub struct BodyReader {
     stream: BoxedReader,
-    /// Called with the connection once the body is complete, if reusable.
+    /// called with the connection once the body is complete, if reusable.
     on_reusable: Option<OnReusable>,
     framing: BodyFraming,
-    /// Bytes already read past \r\n\r\n during header parsing.
+    /// bytes already read past \r\n\r\n during header parsing.
     buffer: Vec<u8>,
     done: bool,
     total_read: usize,
-    /// Chunked decoder: bytes remaining in the current HTTP chunk.
+    /// chunked decoder: bytes remaining in the current http chunk.
     chunk_remaining: usize,
-    /// Chunked decoder: whether we're waiting for the trailing \r\n after chunk data.
+    /// chunked decoder: whether we're waiting for the trailing \r\n after chunk data.
     awaiting_chunk_crlf: bool,
 }
 
@@ -126,14 +125,14 @@ impl BodyReader {
         }
     }
 
-    /// Hand the connection to `f` once the body has been read completely.
+    /// hand the connection to `f` once the body has been read completely.
     pub fn on_reusable(&mut self, f: OnReusable) {
         if !matches!(self.framing, BodyFraming::UntilEof) {
             self.on_reusable = Some(f);
         }
     }
 
-    /// Read the next chunk of decoded body bytes. Returns `None` at EOF.
+    /// read the next chunk of decoded body bytes. returns `None` at eof.
     pub async fn read_chunk(&mut self) -> Result<Option<Vec<u8>>, JsTorError> {
         let r = self.read_chunk_inner().await;
         if matches!(r, Ok(None)) && self.done && self.buffer.is_empty() {
@@ -163,7 +162,7 @@ impl BodyReader {
         }
     }
 
-    /// Read the entire remaining body by calling `read_chunk()` in a loop.
+    /// read the entire remaining body by calling `read_chunk()` in a loop.
     #[allow(dead_code)]
     pub async fn read_all(&mut self) -> Result<Vec<u8>, JsTorError> {
         let mut body = Vec::new();
@@ -173,7 +172,7 @@ impl BodyReader {
         Ok(body)
     }
 
-    /// Read the next chunk for Content-Length framing.
+    /// read the next chunk for content-length framing.
     async fn read_chunk_content_length(&mut self, total_len: usize) -> Result<Option<Vec<u8>>, JsTorError> {
         let remaining = total_len.saturating_sub(self.total_read);
         if remaining == 0 {
@@ -194,7 +193,7 @@ impl BodyReader {
         let read_size = std::cmp::min(8192, remaining);
         let mut buf = vec![0u8; read_size];
         match self.stream.read(&mut buf).await {
-            // EOF with bytes still owed: the body is short. Reporting this as a
+            // eof with bytes still owed: the body is short. reporting this as a
             // clean end would hand the caller a silently truncated response.
             Ok(0) => {
                 self.done = true;
@@ -219,11 +218,11 @@ impl BodyReader {
         }
     }
 
-    /// Read the next chunk for EOF-terminated framing.
+    /// read the next chunk for eof-terminated framing.
     async fn read_chunk_eof(&mut self) -> Result<Option<Vec<u8>>, JsTorError> {
         if !self.buffer.is_empty() {
             let chunk = std::mem::take(&mut self.buffer);
-            // Counted so a later read error is treated as a close, matching the
+            // counted so a later read error is treated as a close, matching the
             // case where the same bytes arrived from the stream itself.
             self.total_read += chunk.len();
             return Ok(Some(chunk));
@@ -242,7 +241,7 @@ impl BodyReader {
             Err(e) => {
                 self.done = true;
                 if self.total_read > 0 {
-                    // Had some data, treat error as EOF
+                    // had some data, treat error as eof
                     debug!("Read ended with error (may be normal close): {}", e);
                     Ok(None)
                 } else {
@@ -252,13 +251,13 @@ impl BodyReader {
         }
     }
 
-    /// Read the next chunk for chunked transfer-encoding.
+    /// read the next chunk for chunked transfer-encoding.
     ///
-    /// Uses persistent state fields (`chunk_remaining`, `awaiting_chunk_crlf`)
-    /// to decode HTTP chunks incrementally across calls.
+    /// uses persistent state fields (`chunk_remaining`, `awaiting_chunk_crlf`)
+    /// to decode http chunks incrementally across calls.
     async fn read_chunk_chunked(&mut self) -> Result<Option<Vec<u8>>, JsTorError> {
         loop {
-            // Data left in the current chunk: return it.
+            // data left in the current chunk: return it.
             if self.chunk_remaining > 0 {
                 let available = if !self.buffer.is_empty() {
                     let take = std::cmp::min(self.buffer.len(), self.chunk_remaining);
@@ -292,12 +291,12 @@ impl BodyReader {
                 return Ok(Some(available));
             }
 
-            // Consume the CRLF after chunk data.
+            // consume the crlf after chunk data.
             if self.awaiting_chunk_crlf {
                 while self.buffer.len() < 2 {
                     let n = self.fill_buffer_from_stream().await?;
                     if n == 0 {
-                        // The terminating chunk never arrived, so the body is
+                        // the terminating chunk never arrived, so the body is
                         // incomplete however many bytes we handed over already.
                         self.done = true;
                         return Err(JsTorError::http_request(
@@ -315,7 +314,7 @@ impl BodyReader {
                 self.awaiting_chunk_crlf = false;
             }
 
-            // Read the next chunk-size line.
+            // read the next chunk-size line.
             loop {
                 if let Some(pos) = find_crlf(&self.buffer) {
                     let size_str = std::str::from_utf8(&self.buffer[..pos])
@@ -334,7 +333,6 @@ impl BodyReader {
                     self.buffer.drain(..pos + 2);
 
                     if size == 0 {
-                        // Terminal chunk
                         self.done = true;
                         return Ok(None);
                     }
@@ -342,11 +340,11 @@ impl BodyReader {
                     self.chunk_remaining = size;
                     break;
                 } else {
-                    // Need more data for the size line
+                    // need more data for the size line
                     let n = self.fill_buffer_from_stream().await?;
                     if n == 0 {
-                        // A well-formed body ends at the `0` chunk, which
-                        // returns above; reaching EOF here means it was cut off.
+                        // a well-formed body ends at the `0` chunk, which
+                        // returns above; reaching eof here means it was cut off.
                         self.done = true;
                         return Err(JsTorError::http_request(
                             "Connection closed before the terminating chunk",
@@ -357,14 +355,14 @@ impl BodyReader {
         }
     }
 
-    /// Read from stream into provided buffer, returning bytes read.
+    /// read from stream into provided buffer, returning bytes read.
     async fn fill_buf(&mut self, buf: &mut [u8]) -> Result<usize, JsTorError> {
         self.stream.read(buf).await.map_err(|e| {
             JsTorError::http_request(format!("Failed to read response: {}", e))
         })
     }
 
-    /// Read from stream and append to self.buffer.
+    /// read from stream and append to self.buffer.
     async fn fill_buffer_from_stream(&mut self) -> Result<usize, JsTorError> {
         let mut buf = [0u8; 8192];
         let n = self.fill_buf(&mut buf).await?;
@@ -375,7 +373,7 @@ impl BodyReader {
     }
 }
 
-/// Build an HTTP/1.1 request as raw bytes
+/// build an http/1.1 request as raw bytes
 pub fn build_request_head(
     url: &Url,
     method: &Method,
@@ -400,8 +398,8 @@ pub fn build_request_head(
     );
 
     if !has_header(headers, "User-Agent") {
-        // Forward the browser's User-Agent to blend in with normal traffic.
-        // In Node.js/Deno, navigator.userAgent is undefined — send no UA.
+        // forward the browser's user-agent to blend in with normal traffic.
+        // in node.js/deno, navigator.useragent is undefined — send no ua.
         if let Some(ua) = get_navigator_user_agent() {
             request.push_str(&format!("User-Agent: {}\r\n", ua));
         }
@@ -409,10 +407,10 @@ pub fn build_request_head(
     if !has_header(headers, "Accept") {
         request.push_str("Accept: */*\r\n");
     }
-    // HTTP/1.1 connections are persistent by default; Nukemichi pools them.
+    // http/1.1 connections are persistent by default; nukemichi pools them.
 
-    // Add custom headers (reject any with CR/LF to prevent header injection).
-    // Skip Host and Content-Length — we set these ourselves.
+    // add custom headers (reject any with cr/lf to prevent header injection).
+    // skip host and content-length — we set these ourselves.
     for (key, value) in headers {
         if key.contains('\r') || key.contains('\n') || value.contains('\r') || value.contains('\n')
         {
@@ -431,26 +429,26 @@ pub fn build_request_head(
             continue;
         }
         if lower == "content-length" || lower == "transfer-encoding" {
-            // We set framing (Content-Length or chunked) ourselves from the body.
+            // we set framing (content-length or chunked) ourselves from the body.
             continue;
         }
         request.push_str(&format!("{}: {}\r\n", key, value));
     }
 
-    // Framing: Content-Length for a known body, chunked for a stream.
+    // framing: content-length for a known body, chunked for a stream.
     match body {
         RequestBody::Bytes(b) => request.push_str(&format!("Content-Length: {}\r\n", b.len())),
         RequestBody::Stream(_) => request.push_str("Transfer-Encoding: chunked\r\n"),
         RequestBody::None => {}
     }
 
-    // End headers; the body (if any) is written separately by write_request.
+    // end headers; the body (if any) is written separately by write_request.
     request.push_str("\r\n");
     Ok(request.into_bytes())
 }
 
-/// Write the head, then the body (raw, or chunked for a stream), then flush.
-/// One chunk at a time keeps backpressure on the Tor stream.
+/// write the head, then the body (raw, or chunked for a stream), then flush.
+/// one chunk at a time keeps backpressure on the tor stream.
 async fn write_request<S>(stream: &mut S, head: &[u8], body: RequestBody) -> Result<(), JsTorError>
 where
     S: futures::io::AsyncWrite + Unpin,
@@ -501,10 +499,10 @@ where
     Ok(())
 }
 
-/// Write the HTTP request and read response headers.
+/// write the http request and read response headers.
 ///
-/// Returns the parsed status/headers, the body framing mode, and any overflow
-/// bytes read past the `\r\n\r\n` header separator. The stream is borrowed
+/// returns the parsed status/headers, the body framing mode, and any overflow
+/// bytes read past the `\r\n\r\n` header separator. the stream is borrowed
 /// mutably so the caller retains ownership for body reading.
 async fn read_response_headers<S>(
     stream: &mut S,
@@ -513,19 +511,19 @@ async fn read_response_headers<S>(
 where
     S: futures::io::AsyncRead + Unpin,
 {
-    // Read response headers, skipping 1xx interim responses (except 101).
+    // read response headers, skipping 1xx interim responses (except 101).
     let mut header_buf = Vec::new();
     let status: u16;
     let mut headers: Vec<(String, String)> = Vec::new();
     let overflow: Vec<u8>;
 
     loop {
-        // Read until we find \r\n\r\n (header/body separator)
+        // read until we find \r\n\r\n (header/body separator)
         let mut buf = [0u8; 8192];
         let header_end;
 
         loop {
-            // Check held bytes before reading: after a 1xx they may already hold
+            // check held bytes before reading: after a 1xx they may already hold
             // the whole final response.
             if let Some(pos) = find_subsequence(&header_buf, b"\r\n\r\n") {
                 header_end = pos;
@@ -582,8 +580,8 @@ where
                     "101 Switching Protocols not supported",
                 ));
             }
-            // Discard 1xx headers and re-read the next response.
-            // Any overflow bytes are the start of the next response.
+            // discard 1xx headers and re-read the next response.
+            // any overflow bytes are the start of the next response.
             header_buf = remaining;
             continue;
         }
@@ -631,9 +629,9 @@ where
     Ok((status, headers, framing, overflow))
 }
 
-/// Perform an HTTP fetch over a Tor stream, resolving as soon as headers arrive.
+/// perform an http fetch over a tor stream, resolving as soon as headers arrive.
 ///
-/// The returned `FetchHeadersResult` contains parsed headers and a `BodyReader`
+/// the returned `FetchHeadersResult` contains parsed headers and a `BodyReader`
 /// that can be used to read the body asynchronously.
 #[expect(clippy::too_many_arguments, reason = "HTTP fetch requires many parameters")]
 #[allow(dead_code, reason = "kept for the codec tests; lib.rs uses fetch_on_conn")]
@@ -700,7 +698,7 @@ where
     }
 }
 
-/// Send a request on an established (already TLS-wrapped, if HTTPS)
+/// send a request on an established (already tls-wrapped, if https)
 /// connection and resolve once the response head arrives. `keep_alive` in the
 /// result says whether the server allows the connection to be reused.
 pub async fn fetch_on_conn(
@@ -724,14 +722,12 @@ pub async fn fetch_on_conn(
     ))
 }
 
-/// Find the position of a subsequence in a byte slice
 fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     haystack
         .windows(needle.len())
         .position(|window| window == needle)
 }
 
-/// Find the position of \r\n in a byte slice
 fn find_crlf(data: &[u8]) -> Option<usize> {
     find_subsequence(data, b"\r\n")
 }
@@ -743,9 +739,9 @@ mod tests {
     use std::collections::VecDeque;
     use std::task::{Context, Poll};
 
-    /// A reader that hands out exactly the pieces it was scripted with, one per
+    /// a reader that hands out exactly the pieces it was scripted with, one per
     /// `poll_read`, so tests can put boundaries wherever the codec is likely to
-    /// get them wrong. After the script runs out it reports EOF, or an error if
+    /// get them wrong. after the script runs out it reports eof, or an error if
     /// `fail_at_end` is set.
     struct ScriptedReader {
         pieces: VecDeque<Vec<u8>>,
@@ -817,7 +813,6 @@ mod tests {
         block_on(r.read_all())
     }
 
-    // Content-Length framing
 
     #[test]
     fn a_content_length_body_arrives_whole() {
@@ -827,7 +822,7 @@ mod tests {
 
     #[test]
     fn a_content_length_body_already_in_the_overflow_buffer_needs_no_read() {
-        // The head and the whole body arrived in one packet.
+        // the head and the whole body arrived in one packet.
         let r = BodyReader::new(
             reader(Vec::<Vec<u8>>::new()),
             BodyFraming::ContentLength(5),
@@ -854,7 +849,7 @@ mod tests {
 
     #[test]
     fn bytes_past_the_content_length_are_ignored() {
-        // Keep-alive is off, so trailing bytes are never a second response, but
+        // keep-alive is off, so trailing bytes are never a second response, but
         // they must not leak into this body either.
         let r = BodyReader::new(reader(["hello world!!!!"]), BodyFraming::ContentLength(11), vec![]);
         assert_eq!(body_of(r).unwrap(), b"hello world");
@@ -873,7 +868,7 @@ mod tests {
         assert_eq!(block_on(r.read_chunk()).unwrap(), None);
     }
 
-    /// The bug this pins: EOF with bytes still owed used to be reported as a
+    /// the bug this pins: eof with bytes still owed used to be reported as a
     /// clean end, so a caller received a short body and no indication of it.
     #[test]
     fn a_short_content_length_body_is_an_error_not_a_clean_end() {
@@ -913,7 +908,6 @@ mod tests {
         assert!(err.message.contains("Failed to read body"), "{}", err.message);
     }
 
-    // Chunked framing
 
     fn chunked(r: BodyReader) -> Result<Vec<u8>, JsTorError> {
         body_of(r)
@@ -941,7 +935,7 @@ mod tests {
 
     #[test]
     fn a_size_line_split_across_reads_is_reassembled() {
-        // The boundary falls inside the size digits, and again inside its CRLF.
+        // the boundary falls inside the size digits, and again inside its crlf.
         // `0b` also covers a size written with a leading zero.
         let r = chunked_reader(["0", "b\r", "\nhello world\r\n0\r\n\r\n"]);
         assert_eq!(chunked(r).unwrap(), b"hello world");
@@ -955,14 +949,14 @@ mod tests {
 
     #[test]
     fn a_chunk_boundary_split_mid_crlf_is_handled() {
-        // The CRLF that ends the chunk data is itself split.
+        // the crlf that ends the chunk data is itself split.
         let r = chunked_reader(["5\r\nhello\r", "\n0\r\n\r\n"]);
         assert_eq!(chunked(r).unwrap(), b"hello");
     }
 
     #[test]
     fn overflow_bytes_holding_the_start_of_the_body_are_used() {
-        // The header read went past \r\n\r\n into the first chunk.
+        // the header read went past \r\n\r\n into the first chunk.
         let r = BodyReader::new(
             reader(["o world\r\n0\r\n\r\n"]),
             BodyFraming::Chunked,
@@ -1018,7 +1012,7 @@ mod tests {
 
     #[test]
     fn a_blank_line_before_a_size_line_is_skipped() {
-        // Some servers emit a stray CRLF between chunks.
+        // some servers emit a stray crlf between chunks.
         let r = chunked_reader(["5\r\nhello\r\n\r\n0\r\n\r\n"]);
         assert_eq!(chunked(r).unwrap(), b"hello");
     }
@@ -1048,7 +1042,7 @@ mod tests {
         );
     }
 
-    /// Used to return a clean end: the chunk's bytes had all been handed over,
+    /// used to return a clean end: the chunk's bytes had all been handed over,
     /// so the truncation was invisible even though the terminator never came.
     #[test]
     fn eof_while_awaiting_the_crlf_after_a_chunk_is_an_error() {
@@ -1056,12 +1050,12 @@ mod tests {
         let err = chunked(r).unwrap_err();
         assert!(err.message.contains("CRLF following a chunk"), "{}", err.message);
 
-        // Also when only one of the two bytes arrived.
+        // also when only one of the two bytes arrived.
         let r = chunked_reader(["5\r\nhello\r"]);
         assert!(chunked(r).is_err());
     }
 
-    /// Likewise: a body cut off between chunks looked complete.
+    /// likewise: a body cut off between chunks looked complete.
     #[test]
     fn eof_before_the_terminating_chunk_is_an_error() {
         let r = chunked_reader(["5\r\nhello\r\n"]);
@@ -1075,7 +1069,7 @@ mod tests {
 
     #[test]
     fn a_chunk_not_followed_by_crlf_is_an_error() {
-        // `XX` where the trailing CRLF belongs: the framing is broken, and
+        // `XX` where the trailing crlf belongs: the framing is broken, and
         // blindly dropping two bytes would silently corrupt the next size line.
         let r = chunked_reader(["5\r\nhelloXX0\r\n\r\n"]);
         let err = chunked(r).unwrap_err();
@@ -1096,7 +1090,6 @@ mod tests {
         assert_eq!(block_on(r.read_chunk()).unwrap(), None);
     }
 
-    // EOF framing
 
     #[test]
     fn an_until_eof_body_reads_to_the_close() {
@@ -1110,7 +1103,7 @@ mod tests {
         assert_eq!(body_of(r).unwrap(), b"hello world");
     }
 
-    /// With no length to check against, a reset after data is indistinguishable
+    /// with no length to check against, a reset after data is indistinguishable
     /// from a close, so the bytes received are returned.
     #[test]
     fn an_until_eof_body_treats_a_late_reset_as_the_end() {
@@ -1138,7 +1131,6 @@ mod tests {
         assert_eq!(block_on(r.read_chunk()).unwrap(), None);
     }
 
-    // build_request_head
 
     fn url(s: &str) -> Url {
         Url::parse(s).unwrap()
@@ -1164,9 +1156,9 @@ mod tests {
         assert!(h.contains("Accept: */*\r\n"));
         assert!(h.contains("Connection: close\r\n"));
         assert!(h.ends_with("\r\n\r\n"), "head must end with a blank line");
-        // No navigator off-browser, so no User-Agent is invented.
+        // no navigator off-browser, so no user-agent is invented.
         assert!(!h.to_ascii_lowercase().contains("user-agent"));
-        // No body, no framing headers.
+        // no body, no framing headers.
         assert!(!h.to_ascii_lowercase().contains("content-length"));
         assert!(!h.to_ascii_lowercase().contains("transfer-encoding"));
     }
@@ -1179,7 +1171,7 @@ mod tests {
 
     #[test]
     fn a_port_and_userinfo_do_not_reach_the_host_header() {
-        // Host carries the hostname only; the port is implied by the connection.
+        // host carries the hostname only; the port is implied by the connection.
         let h = head("https://example.com:8443/x", Method::GET, &[], RequestBody::None);
         assert_eq!(lines_of(&h)[1], "Host: example.com");
     }
@@ -1223,7 +1215,7 @@ mod tests {
         assert_eq!(h.to_ascii_lowercase().matches("user-agent").count(), 1);
     }
 
-    /// The connection fixes the origin, so a caller's Host is dropped, not sent twice.
+    /// the connection fixes the origin, so a caller's host is dropped, not sent twice.
     #[test]
     fn a_caller_supplied_host_never_reaches_the_wire() {
         let h = head(
@@ -1237,7 +1229,7 @@ mod tests {
         assert!(!h.contains("evil.example"));
     }
 
-    /// Framing is derived from the body, so a caller cannot contradict it.
+    /// framing is derived from the body, so a caller cannot contradict it.
     #[test]
     fn caller_supplied_framing_headers_are_stripped() {
         let h = head(
@@ -1313,7 +1305,7 @@ mod tests {
         }
     }
 
-    /// A lone CR or LF is enough to split a message for some parsers, so the
+    /// a lone cr or lf is enough to split a message for some parsers, so the
     /// check must not look only for the pair.
     #[test]
     fn a_bare_newline_in_a_value_is_refused() {
@@ -1332,7 +1324,7 @@ mod tests {
         }
     }
 
-    /// Rejection has to happen before the header is skipped, or injection via a
+    /// rejection has to happen before the header is skipped, or injection via a
     /// dropped header name would slip through.
     #[test]
     fn injection_through_a_skipped_header_is_still_refused() {
@@ -1350,7 +1342,6 @@ mod tests {
         }
     }
 
-    // write_request
 
     fn write(body: RequestBody) -> Result<Vec<u8>, JsTorError> {
         let mut out = futures::io::Cursor::new(Vec::new());
@@ -1387,7 +1378,7 @@ mod tests {
         assert!(text.contains("\r\n\r\nff\r\n"), "size should be hex: {}", &text[..24]);
     }
 
-    /// A producer yielding an empty buffer must not terminate the body — `0\r\n`
+    /// a producer yielding an empty buffer must not terminate the body — `0\r\n`
     /// is the end-of-body marker.
     #[test]
     fn empty_stream_chunks_are_skipped_not_written() {
@@ -1412,7 +1403,7 @@ mod tests {
         assert!(err.message.contains("producer failed"), "{}", err.message);
     }
 
-    /// The framing the head declares has to match what the body writer emits.
+    /// the framing the head declares has to match what the body writer emits.
     #[test]
     fn the_declared_framing_matches_the_bytes_written() {
         let h = head("https://example.com/", Method::POST, &[], RequestBody::Bytes(b"hello".to_vec()));
@@ -1431,7 +1422,7 @@ mod tests {
         assert!(written.ends_with(b"0\r\n\r\n"));
     }
 
-    /// A chunked request body written by `write_request` must decode back through
+    /// a chunked request body written by `write_request` must decode back through
     /// the same codec that reads chunked responses.
     #[test]
     fn a_written_chunked_body_decodes_back() {
@@ -1441,7 +1432,6 @@ mod tests {
         assert_eq!(chunked(r).unwrap(), b"hello world");
     }
 
-    // read_response_headers
 
     type ParsedHead = (u16, Vec<(String, String)>, BodyFraming, Vec<u8>);
 
@@ -1464,7 +1454,7 @@ mod tests {
         assert_eq!(status, 200);
         assert_eq!(framing, BodyFraming::ContentLength(5));
         assert_eq!(overflow, b"hello");
-        // Names are lowercased for lookup; values keep their case.
+        // names are lowercased for lookup; values keep their case.
         assert!(headers.contains(&("content-type".into(), "text/plain".into())));
     }
 
@@ -1495,7 +1485,7 @@ mod tests {
         assert_eq!(status, 200);
     }
 
-    /// The interim response is discarded and the final one used. Both arrive in
+    /// the interim response is discarded and the final one used. both arrive in
     /// one read here, which used to leave the parser waiting for bytes the
     /// server had already finished sending.
     #[test]
@@ -1569,7 +1559,7 @@ mod tests {
         }
     }
 
-    /// RFC 9112 §6.1: when both are present, chunked wins and Content-Length is
+    /// rfc 9112 §6.1: when both are present, chunked wins and content-length is
     /// ignored — the alternative is a request-smuggling primitive.
     #[test]
     fn chunked_takes_precedence_over_content_length() {
@@ -1641,7 +1631,7 @@ mod tests {
 
     #[test]
     fn an_oversized_head_is_refused() {
-        // Well past the 64 KB cap, in pieces so the cumulative check is what
+        // well past the 64 kb cap, in pieces so the cumulative check is what
         // catches it.
         let filler = format!("X-Pad: {}\r\n", "v".repeat(1000));
         let mut pieces = vec!["HTTP/1.1 200 OK\r\n".to_string()];
@@ -1688,9 +1678,8 @@ mod tests {
         assert_eq!(cookies.len(), 2);
     }
 
-    // head + body together
 
-    /// The overflow handed to the BodyReader must line up exactly with where the
+    /// the overflow handed to the bodyreader must line up exactly with where the
     /// head parser stopped, whatever the read boundaries were.
     #[test]
     fn a_whole_exchange_decodes_across_arbitrary_read_boundaries() {

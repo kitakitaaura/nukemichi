@@ -1,6 +1,6 @@
-// Phase 0 measurements. One "run" = cold boot (IndexedDB cleared) + RTTs +
-// 1 MiB download, then a warm boot in a new page sharing the IndexedDB.
-// Usage: node bench/measure.mjs <browser> <transport> <runs> [outfile]
+// phase 0 measurements. one "run" = cold boot (indexeddb cleared) + rtts +
+// 1 mib download, then a warm boot in a new page sharing the indexeddb.
+// usage: node bench/measure.mjs <browser> <transport> <runs> [outfile]
 import { chromium, firefox, webkit } from 'playwright';
 import { appendFileSync } from 'node:fs';
 const [engineName = 'chromium', transport = 'websocket', runsArg = '1', outFile] = process.argv.slice(2);

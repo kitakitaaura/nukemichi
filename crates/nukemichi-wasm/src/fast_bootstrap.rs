@@ -1,20 +1,20 @@
-//! Fast bootstrap: pre-populate directory cache from a bootstrap.zip archive.
+//! fast bootstrap: pre-populate directory cache from a bootstrap.zip archive.
 //!
-//! The callback may return the archive either as raw zip bytes or
+//! the callback may return the archive either as raw zip bytes or
 //! zstd-compressed (`bootstrap.zip.zst`, as served by tor-js-gateway);
 //! compression is detected by the zstd magic and decompressed with ruzstd.
 //!
-//! Parses a bootstrap.zip (from a tor-js-gateway server) containing:
+//! parses a bootstrap.zip (from a tor-js-gateway server) containing:
 //! - `bootstrap/consensus-microdesc.txt`
 //! - `bootstrap/authority-certs.txt`
 //! - `bootstrap/microdescs.txt`
 //!
-//! Uses arti's own document parsers ([`MdConsensus`], [`AuthCert`])
-//! for consensus and authority certs. Microdescriptors use lightweight
-//! text splitting with SHA-256 (matching arti's digest computation)
-//! to avoid the cost of full parsing in WASM (~3s for ~10k microdescs).
+//! uses arti's own document parsers ([`MdConsensus`], [`AuthCert`])
+//! for consensus and authority certs. microdescriptors use lightweight
+//! text splitting with sha-256 (matching arti's digest computation)
+//! to avoid the cost of full parsing in wasm (~3s for ~10k microdescs).
 //!
-//! Writes parsed documents directly to [`CachedJsStorage`] so the Tor
+//! writes parsed documents directly to [`CachedJsStorage`] so the tor
 //! client can skip fetching directory data from the network on first boot.
 
 use crate::storage::CachedJsStorage;
@@ -26,11 +26,11 @@ use tor_netdoc::doc::authcert::AuthCert;
 use tor_netdoc::doc::netstatus::MdConsensus;
 use tracing::{info, warn};
 
-/// Zstd frame magic number (little-endian 0xFD2FB528).
+/// zstd frame magic number (little-endian 0xfd2fb528).
 const ZSTD_MAGIC: [u8; 4] = [0x28, 0xB5, 0x2F, 0xFD];
 
-/// Decompress the archive if it is zstd (tor-js-gateway serves
-/// `/bootstrap.zip.zst` raw). Zip bytes pass through unchanged.
+/// decompress the archive if it is zstd (tor-js-gateway serves
+/// `/bootstrap.zip.zst` raw). zip bytes pass through unchanged.
 fn maybe_decompress_zstd(bytes: Vec<u8>) -> Result<Vec<u8>, String> {
     if bytes.len() < 4 || bytes[..4] != ZSTD_MAGIC {
         return Ok(bytes);
@@ -48,7 +48,7 @@ fn maybe_decompress_zstd(bytes: Vec<u8>) -> Result<Vec<u8>, String> {
     Ok(decompressed)
 }
 
-/// Check if storage is empty and, if so, populate from the fast bootstrap callback.
+/// check if storage is empty and, if so, populate from the fast bootstrap callback.
 pub async fn maybe_fast_bootstrap(
     storage: &CachedJsStorage,
     callback: js_sys::Function,
@@ -64,7 +64,7 @@ pub async fn maybe_fast_bootstrap(
 
     info!("Fast bootstrap: fetching bootstrap.zip...");
 
-    // Call the JS callback: () => Promise<Uint8Array>
+    // call the js callback: () => promise<uint8array>
     let promise = callback
         .call0(&wasm_bindgen::JsValue::NULL)
         .map_err(|e| {
@@ -100,7 +100,7 @@ pub async fn maybe_fast_bootstrap(
         .map(|s| s.as_str())
         .unwrap_or("");
 
-    // Parse consensus using arti's parser to get the signed portion split and lifetime
+    // parse consensus using arti's parser to get the signed portion split and lifetime
     let (signed_str, _remainder, unchecked) = MdConsensus::parse(consensus_text)
         .map_err(|e| wasm_bindgen::JsValue::from_str(&format!("consensus parse error: {}", e)))?;
 
@@ -126,22 +126,21 @@ pub async fn maybe_fast_bootstrap(
     Ok(())
 }
 
-// Zip parser (Stored-only)
 
-/// Why a bootstrap archive could not be read.
+/// why a bootstrap archive could not be read.
 ///
-/// A plain error type rather than `JsValue`: these bytes come off the wire from
+/// a plain error type rather than `JsValue`: these bytes come off the wire from
 /// the gateway, so the parser is worth testing, and `JsValue` cannot be
-/// constructed outside a JS host.
+/// constructed outside a js host.
 #[derive(Debug, PartialEq, Eq)]
 pub enum ZipError {
-    /// Compression method other than Stored (0).
+    /// compression method other than stored (0).
     UnsupportedMethod(u16),
-    /// A member's declared size runs past the end of the archive.
+    /// a member's declared size runs past the end of the archive.
     Truncated,
-    /// A member name is not valid UTF-8.
+    /// a member name is not valid utf-8.
     InvalidName,
-    /// A member's contents are not valid UTF-8.
+    /// a member's contents are not valid utf-8.
     InvalidContent,
 }
 
@@ -170,7 +169,7 @@ fn parse_stored_zip(data: &[u8]) -> Result<HashMap<String, String>, ZipError> {
             data[offset + 3],
         ]);
         if sig != 0x04034b50 {
-            // Central directory (or trailing junk): the members are all read.
+            // central directory (or trailing junk): the members are all read.
             break;
         }
 
@@ -199,7 +198,7 @@ fn parse_stored_zip(data: &[u8]) -> Result<HashMap<String, String>, ZipError> {
             return Err(ZipError::Truncated);
         }
 
-        // Proven in range, so narrowing cannot lose information.
+        // proven in range, so narrowing cannot lose information.
         let (name_start, name_end) = (name_start as usize, name_end as usize);
         let (data_start, data_end) = (data_start as usize, data_end as usize);
 
@@ -209,7 +208,7 @@ fn parse_stored_zip(data: &[u8]) -> Result<HashMap<String, String>, ZipError> {
             .map_err(|_| ZipError::InvalidContent)?;
 
         files.insert(name.to_string(), content.to_string());
-        // Each member advances at least past its own 30-byte header, so the
+        // each member advances at least past its own 30-byte header, so the
         // loop always makes progress.
         offset = data_end;
     }
@@ -237,7 +236,6 @@ fn storage_set(
         .map_err(|e| js_err(format_args!("storage error: {}", e)))
 }
 
-// Consensus storage
 
 fn store_consensus(
     storage: &CachedJsStorage,
@@ -271,7 +269,6 @@ fn store_consensus(
     Ok(())
 }
 
-// Authority certificate storage
 
 fn store_authcerts(
     storage: &CachedJsStorage,
@@ -288,13 +285,13 @@ fn store_authcerts(
     for cert_result in certs_iter {
         match cert_result {
             Ok(unchecked) => {
-                // Extract text from the unchecked cert (within() is on UncheckedAuthCert)
+                // extract text from the unchecked cert (within() is on uncheckedauthcert)
                 let cert_text = unchecked
                     .within(authcert_text)
                     .unwrap_or("");
 
-                // Skip signature and time checks for metadata extraction only.
-                // Arti re-verifies everything when loading from storage (see state.rs add_from_cache impls).
+                // skip signature and time checks for metadata extraction only.
+                // arti re-verifies everything when loading from storage (see state.rs add_from_cache impls).
                 let cert = unchecked
                     .dangerously_assume_wellsigned()
                     .dangerously_assume_timely();
@@ -328,14 +325,13 @@ fn store_authcerts(
     Ok(())
 }
 
-// Microdescriptor storage
 
-/// Store microdescriptors using lightweight text splitting instead of arti's
-/// full parser. Each microdesc starts with "onion-key\n" and the storage key
-/// is SHA-256 of the text from that boundary to the next (matching how arti
+/// store microdescriptors using lightweight text splitting instead of arti's
+/// full parser. each microdesc starts with "onion-key\n" and the storage key
+/// is sha-256 of the text from that boundary to the next (matching how arti
 /// computes `Microdesc::sha256`).
 ///
-/// SHA-256 runs in Rust: `crypto.subtle` is missing outside secure contexts.
+/// sha-256 runs in rust: `crypto.subtle` is missing outside secure contexts.
 fn store_microdescs(
     storage: &CachedJsStorage,
     microdesc_text: &str,
@@ -345,12 +341,12 @@ fn store_microdescs(
         return Ok(());
     }
 
-    // Pre-format the fixed suffix since listed_at_secs is the same for all.
+    // pre-format the fixed suffix since listed_at_secs is the same for all.
     let listed_suffix = format!(",\"listed_at_secs\":{}}}", listed_at_secs);
 
     let marker = "onion-key\n";
 
-    // Find all occurrences of "onion-key\n" as microdesc boundaries.
+    // find all occurrences of "onion-key\n" as microdesc boundaries.
     let mut positions: Vec<usize> = Vec::new();
     let mut search_from = 0;
     while let Some(pos) = microdesc_text[search_from..].find(marker) {
@@ -372,13 +368,13 @@ fn store_microdescs(
         slices.push(&microdesc_text[start..end]);
     }
 
-    // Build entries keyed by the hex SHA-256 of each microdesc's text.
+    // build entries keyed by the hex sha-256 of each microdesc's text.
     let mut entries = Vec::with_capacity(slices.len());
     for md_text in &slices {
         let digest_hex = hex::encode(tor_llcrypto::d::Sha256::digest(md_text.as_bytes()));
 
         let key = format!("dir:microdesc:{}", digest_hex);
-        // Build JSON directly with newline escaping.
+        // build json directly with newline escaping.
         let mut value = String::with_capacity(md_text.len() + md_text.len() / 20 + 60);
         value.push_str("{\"content\":\"");
         for b in md_text.bytes() {
@@ -407,7 +403,7 @@ fn store_microdescs(
 mod zip_tests {
     use super::*;
 
-    /// Build one Stored local-file-header record, exactly as the gateway's
+    /// build one stored local-file-header record, exactly as the gateway's
     /// `write_bootstrap_archive` emits them.
     fn member(name: &str, content: &[u8]) -> Vec<u8> {
         member_with(name, content, 0, &[])
@@ -432,7 +428,7 @@ mod zip_tests {
         out
     }
 
-    /// A central-directory record, which the parser must stop at rather than
+    /// a central-directory record, which the parser must stop at rather than
     /// try to read as another member.
     fn central_directory(name: &str) -> Vec<u8> {
         let mut out = Vec::new();
@@ -464,7 +460,7 @@ mod zip_tests {
 
     #[test]
     fn parsing_stops_at_the_central_directory() {
-        // Trailing bytes after the central directory must not be read as members.
+        // trailing bytes after the central directory must not be read as members.
         let mut zip = bootstrap_archive();
         zip.extend_from_slice(&[0xff; 64]);
         assert_eq!(parse_stored_zip(&zip).unwrap().len(), 3);
@@ -489,7 +485,7 @@ mod zip_tests {
 
     #[test]
     fn compressed_members_are_refused_rather_than_mis_read() {
-        // Deflate (8) is the zip default, so this is the likely mistake.
+        // deflate (8) is the zip default, so this is the likely mistake.
         let zip = member_with("f.txt", b"payload", 8, &[]);
         assert_eq!(parse_stored_zip(&zip), Err(ZipError::UnsupportedMethod(8)));
     }
@@ -514,20 +510,20 @@ mod zip_tests {
         }
     }
 
-    /// A gateway can hand back anything. With the offsets computed in `usize`,
+    /// a gateway can hand back anything. with the offsets computed in `usize`,
     /// this header wrapped on wasm32 (32-bit `usize`), passed the truncation
     /// check, and then panicked on a backwards slice — a bootstrap-time crash
     /// triggerable by whoever serves the archive.
     #[test]
     fn a_size_near_u32_max_is_truncated_not_a_panic() {
         let mut zip = member("f.txt", b"payload");
-        // Overwrite the compressed size with a value that wraps 32-bit usize
+        // overwrite the compressed size with a value that wraps 32-bit usize
         // once the header and name offsets are added.
         let huge = u32::MAX.to_le_bytes();
         zip[18..22].copy_from_slice(&huge);
         assert_eq!(parse_stored_zip(&zip), Err(ZipError::Truncated));
 
-        // The same for values that wrap only after the name and extra fields.
+        // the same for values that wrap only after the name and extra fields.
         for size in [u32::MAX - 30, u32::MAX - 35, u32::MAX - 1] {
             let mut zip = member("f.txt", b"payload");
             zip[18..22].copy_from_slice(&size.to_le_bytes());
@@ -535,7 +531,7 @@ mod zip_tests {
         }
     }
 
-    /// Documents *why* the parser widens to u64. On a 64-bit host these terms
+    /// documents *why* the parser widens to u64. on a 64-bit host these terms
     /// cannot wrap, so the truncation tests above would pass either way — this
     /// is the arithmetic that used to defeat the bounds check on wasm32.
     #[test]
@@ -547,7 +543,7 @@ mod zip_tests {
             "32-bit `usize` wraps here, yielding data_end < data_start"
         );
         assert_eq!(data_start.wrapping_add(compressed_size), 34);
-        // Widened, the terms stay ordered, so `data_end > len` still holds.
+        // widened, the terms stay ordered, so `data_end > len` still holds.
         assert!(data_start as u64 + compressed_size as u64 > u32::MAX as u64);
     }
 
@@ -567,7 +563,7 @@ mod zip_tests {
 
     #[test]
     fn non_utf8_names_and_contents_are_rejected() {
-        // Name bytes are spliced in directly so they can be invalid UTF-8.
+        // name bytes are spliced in directly so they can be invalid utf-8.
         let mut zip = member("ab.txt", b"payload");
         zip[30] = 0xff;
         assert_eq!(parse_stored_zip(&zip), Err(ZipError::InvalidName));
@@ -586,7 +582,7 @@ mod zip_tests {
         assert_eq!(files["f.txt"], "second");
     }
 
-    /// Every member advances the cursor past at least its own header, so no
+    /// every member advances the cursor past at least its own header, so no
     /// crafted archive can spin the loop.
     #[test]
     fn zero_length_members_still_terminate() {
@@ -598,7 +594,6 @@ mod zip_tests {
         assert_eq!(files.len(), 1, "all 50 share the empty name");
     }
 
-    // zstd wrapper
 
     #[test]
     fn raw_zip_bytes_pass_through_undisturbed() {
@@ -632,24 +627,24 @@ mod zip_tests {
         compressed.truncate(tail);
         assert!(maybe_decompress_zstd(compressed).is_err());
 
-        // Magic bytes with nothing behind them.
+        // magic bytes with nothing behind them.
         assert!(maybe_decompress_zstd(ZSTD_MAGIC.to_vec()).is_err());
     }
 
-    /// Minimal zstd frame writer: a single raw (uncompressed) block, which
-    /// ruzstd decodes like any other frame. Avoids adding an encoder dependency
+    /// minimal zstd frame writer: a single raw (uncompressed) block, which
+    /// ruzstd decodes like any other frame. avoids adding an encoder dependency
     /// to the wasm crate just for tests.
     fn zstd_encode(data: &[u8]) -> Vec<u8> {
         let mut out = Vec::new();
         out.extend_from_slice(&ZSTD_MAGIC);
-        // Frame_Header_Descriptor: no content size, not single-segment, no
-        // checksum, no dictionary — so a Window_Descriptor follows and no
-        // Frame_Content_Size field does.
+        // frame_header_descriptor: no content size, not single-segment, no
+        // checksum, no dictionary — so a window_descriptor follows and no
+        // frame_content_size field does.
         out.push(0x00);
-        // Window_Descriptor: exponent 7 → windowLog 17 → a 128 KiB window,
+        // window_descriptor: exponent 7 → windowlog 17 → a 128 kib window,
         // which is the largest a raw block can be.
         out.push(0x38);
-        // Raw blocks are capped at 128 KiB each.
+        // raw blocks are capped at 128 kib each.
         let mut chunks = data.chunks(1 << 17).peekable();
         if data.is_empty() {
             out.extend_from_slice(&[0x01, 0x00, 0x00]);
@@ -657,7 +652,7 @@ mod zip_tests {
         while let Some(chunk) = chunks.next() {
             let last = chunks.peek().is_none() as u32;
             // block_header = last_block | (block_type << 1) | (size << 3),
-            // block_type 0 = Raw.
+            // block_type 0 = raw.
             let header = last | ((chunk.len() as u32) << 3);
             out.extend_from_slice(&header.to_le_bytes()[..3]);
             out.extend_from_slice(chunk);

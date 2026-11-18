@@ -1,5 +1,5 @@
-// Offline check of engine.decodeResponse (br via wasm or native, gzip native),
-// in a worker as in production. Uses local fixtures; no Tor traffic.
+// offline check of engine.decoderesponse (br via wasm or native, gzip native),
+// in a worker as in production. uses local fixtures; no tor traffic.
 import { chromium, firefox, webkit } from 'playwright';
 for (const [name, bt] of Object.entries({ chromium, firefox, webkit })) {
   const b = await bt.launch(); const p = await b.newPage();

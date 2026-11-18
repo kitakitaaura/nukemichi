@@ -1,13 +1,13 @@
-// Snowflake carriers: the byte pipes the wasm Snowflake layer runs over.
+// snowflake carriers: the byte pipes the wasm snowflake layer runs over.
 //
-// - 'webrtc': ask the Snowflake broker for a volunteer proxy, open a WebRTC
-//   data channel to it. The proxy relays bytes to the bridge. This is how
-//   Tor Browser uses Snowflake. Needs RTCPeerConnection (main thread only).
-// - 'websocket': open a WebSocket straight to the bridge's WebSocket endpoint
-//   (the one proxies use). No volunteer proxy involved. Works in workers.
+// - 'webrtc': ask the snowflake broker for a volunteer proxy, open a webrtc
+//   data channel to it. the proxy relays bytes to the bridge. this is how
+//   tor browser uses snowflake. needs rtcpeerconnection (main thread only).
+// - 'websocket': open a websocket straight to the bridge's websocket endpoint
+//   (the one proxies use). no volunteer proxy involved. works in workers.
 //
-// Both carry the same Turbo Tunnel / KCP / smux stream, which the wasm side
-// speaks. Redials after a carrier dies reuse the session.
+// both carry the same turbo tunnel / kcp / smux stream, which the wasm side
+// speaks. redials after a carrier dies reuse the session.
 
 import { messageChannelSocket } from './pipe.js';
 
@@ -56,7 +56,7 @@ export async function openDataChannel(fingerprint, { broker = BROKER, iceServers
   dc.binaryType = 'arraybuffer';
   try {
     await pc.setLocalDescription(await pc.createOffer());
-    // Snowflake does not trickle ICE: send the offer with all candidates.
+    // snowflake does not trickle ice: send the offer with all candidates.
     await withTimeout(new Promise((resolve) => {
       if (pc.iceGatheringState === 'complete') return resolve();
       pc.addEventListener('icegatheringstatechange', () => {

@@ -1,7 +1,7 @@
-// A page opened straight from disk (file://) that loads Nukemichi from a CDN
-// with default options. Workers cannot start there, so this checks the
-// fallback to the main thread. Pass CDN=<url> to test a published copy.
-// Usage: node bench/filepage.mjs <chromium|firefox|webkit> <scratch dir>
+// a page opened straight from disk (file://) that loads nukemichi from a cdn
+// with default options. workers cannot start there, so this checks the
+// fallback to the main thread. pass cdn=<url> to test a published copy.
+// usage: node bench/filepage.mjs <chromium|firefox|webkit> <scratch dir>
 import http from 'node:http';
 import { readFile, writeFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';

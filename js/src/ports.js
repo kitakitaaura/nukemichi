@@ -1,16 +1,16 @@
-// Moving byte streams across a MessagePort.
+// moving byte streams across a messageport.
 //
-// WebKit cannot transfer ReadableStream/WritableStream to a worker, and only
-// Chromium can transfer an RTCDataChannel (and only in the task that created
-// it). So every byte that crosses the worker boundary goes over a
-// MessagePort, with credit-based flow control so a slow reader stalls the
+// webkit cannot transfer readablestream/writablestream to a worker, and only
+// chromium can transfer an rtcdatachannel (and only in the task that created
+// it). so every byte that crosses the worker boundary goes over a
+// messageport, with credit-based flow control so a slow reader stalls the
 // writer instead of filling memory.
 
 const CREDIT = 16; // chunks in flight per stream
 
 function toBuffer(chunk) {
   const u8 = chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk);
-  // Copy unless the view covers its whole buffer, so we can transfer it.
+  // copy unless the view covers its whole buffer, so we can transfer it.
   return u8.byteOffset === 0 && u8.byteLength === u8.buffer.byteLength ? u8.buffer : u8.slice().buffer;
 }
 
@@ -70,7 +70,7 @@ export function portToReadable(port) {
       port.postMessage({ t: 'credit', n: CREDIT });
     },
     pull() {
-      // Top up credit as the consumer drains the queue.
+      // top up credit as the consumer drains the queue.
       if (outstanding < CREDIT / 2) {
         const n = CREDIT - outstanding;
         outstanding += n;
@@ -142,7 +142,7 @@ export function portChannel(port) {
   return ch;
 }
 
-// Peers cap SCTP messages (often 64 KiB, sometimes less); the carrier is a byte stream, so splitting is safe.
+// peers cap sctp messages (often 64 kib, sometimes less); the carrier is a byte stream, so splitting is safe.
 const MAX_DC_MESSAGE = 16 * 1024;
 export function sendInPieces(dc, data) {
   const bytes = data instanceof ArrayBuffer ? new Uint8Array(data) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);

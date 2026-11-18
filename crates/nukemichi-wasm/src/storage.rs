@@ -1,14 +1,14 @@
-//! JavaScript storage adapter.
+//! javascript storage adapter.
 //!
-//! This module provides [`CachedJsStorage`], a [`KeyValueStore`] implementation
-//! that bridges async JavaScript storage APIs with Rust's sync storage traits
+//! this module provides [`CachedJsStorage`], a [`KeyValueStore`] implementation
+//! that bridges async javascript storage apis with rust's sync storage traits
 //! using a pre-load + cache + async write-back pattern:
 //!
-//! 1. During client creation (async), all data is loaded from JS storage
-//! 2. Sync reads hit the in-memory cache
-//! 3. Writes update the cache and schedule async persistence via spawn_local()
+//! 1. during client creation (async), all data is loaded from js storage
+//! 2. sync reads hit the in-memory cache
+//! 3. writes update the cache and schedule async persistence via spawn_local()
 //!
-//! [`KeyValueStore`]: tor_persist::KeyValueStore
+//! [`KeyValueStore`]: tor_persist::keyvaluestore
 
 use tor_persist::{KeyValueStore, StorageError};
 use futures::FutureExt as _;
@@ -20,18 +20,18 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::JsFuture;
 
-/// JavaScript storage interface.
+/// javascript storage interface.
 ///
-/// This is the interface that JavaScript code must implement to provide
-/// custom storage. All methods return Promises.
-/// (Return values are wrapped in Result to handle the possibility that JS
+/// this is the interface that javascript code must implement to provide
+/// custom storage. all methods return promises.
+/// (return values are wrapped in result to handle the possibility that js
 /// throws synchronously.)
 #[wasm_bindgen]
 extern "C" {
     #[wasm_bindgen(typescript_type = "TorStorage")]
     pub type JsStorageInterface;
 
-    /// Get a value by key. Returns null if not found.
+    /// get a value by key. returns null if not found.
     #[wasm_bindgen(method, catch)]
     fn get(this: &JsStorageInterface, key: &str) -> Result<Promise, JsValue>;
 
@@ -44,11 +44,11 @@ extern "C" {
     #[wasm_bindgen(method, catch)]
     fn keys(this: &JsStorageInterface, prefix: &str) -> Result<Promise, JsValue>;
 
-    /// Returns an array of [key, value] pairs.
+    /// returns an array of [key, value] pairs.
     #[wasm_bindgen(method, catch, js_name = "getAll")]
     fn get_all(this: &JsStorageInterface, prefix: &str) -> Result<Promise, JsValue>;
 
-    /// Returns a boolean: true if newly acquired, false if already held.
+    /// returns a boolean: true if newly acquired, false if already held.
     #[wasm_bindgen(method, catch, js_name = "tryLock")]
     fn try_lock(this: &JsStorageInterface) -> Result<Promise, JsValue>;
 
@@ -56,9 +56,8 @@ extern "C" {
     fn unlock(this: &JsStorageInterface) -> Result<Promise, JsValue>;
 }
 
-/// Rust wrapper around the JavaScript storage interface.
 ///
-/// Provides async methods that convert JS Promises to Rust Futures.
+/// provides async methods that convert js promises to rust futures.
 pub struct JsStorage {
     inner: send_wrapper::SendWrapper<JsStorageInterface>,
 }
@@ -139,46 +138,46 @@ impl JsStorage {
     }
 }
 
-/// Cached JavaScript storage implementing [`KeyValueStore`].
+/// cached javascript storage implementing [`KeyValueStore`].
 ///
-/// Bridges async JavaScript storage APIs with the sync [`KeyValueStore`] trait
-/// using a pre-load + cache + async write-back pattern. All keys from JS
+/// bridges async javascript storage apis with the sync [`KeyValueStore`] trait
+/// using a pre-load + cache + async write-back pattern. all keys from js
 /// storage are loaded into an in-memory cache during construction, then:
 ///
-/// - **Reads** hit the cache directly (sync)
-/// - **Writes** update the cache and schedule async persistence via `spawn_local()`
-/// - **Locking**: the JS-side lock is acquired once during construction and
-///   held for the client's lifetime. The sync `try_lock()`/`unlock()` methods
+/// - **reads** hit the cache directly (sync)
+/// - **writes** update the cache and schedule async persistence via `spawn_local()`
+/// - **locking**: the js-side lock is acquired once during construction and
+///   held for the client's lifetime. the sync `try_lock()`/`unlock()` methods
 ///   only manage local state for arti's internal protocol.
 ///
-/// # Locking limitations
+/// # locking limitations
 ///
-/// Because [`KeyValueStore`] lock methods are sync but JS locking is async,
-/// we can't cycle locks at runtime. The JS lock is acquired once in [`new()`]
+/// because [`KeyValueStore`] lock methods are sync but js locking is async,
+/// we can't cycle locks at runtime. the js lock is acquired once in [`new()`]
 /// and never released (until the tab/worker closes).
 pub struct CachedJsStorage {
-    /// The underlying JS storage (for async write-back).
+    /// the underlying js storage (for async write-back).
     js_storage: JsStorage,
-    /// In-memory cache for sync reads.
+    /// in-memory cache for sync reads.
     cache: Arc<RwLock<HashMap<String, String>>>,
-    /// Whether we currently hold the write lock.
+    /// whether we currently hold the write lock.
     locked: Arc<RwLock<bool>>,
-    /// Fires after the JS lock is released in `Drop`. `Option` so `Drop` can take it.
+    /// fires after the js lock is released in `Drop`. `Option` so `Drop` can take it.
     drop_tx: Option<tor_async_utils::oneshot::Sender<()>>,
-    /// Cloneable handle that resolves when the JS lock is released.
+    /// cloneable handle that resolves when the js lock is released.
     drop_rx: futures::future::Shared<tor_async_utils::oneshot::Receiver<()>>,
 }
 
-// CachedJsStorage is Send/Sync because JsStorage uses SendWrapper internally.
+// cachedjsstorage is send/sync because jsstorage uses sendwrapper internally.
 
 impl CachedJsStorage {
-    /// Create a new CachedJsStorage, preloading all data from JS storage.
+    /// create a new cachedjsstorage, preloading all data from js storage.
     ///
-    /// Acquires the JS-side lock and holds it for the client's lifetime.
-    /// This validates that `tryLock()` and `unlock()` exist on the JS object,
+    /// acquires the js-side lock and holds it for the client's lifetime.
+    /// this validates that `tryLock()` and `unlock()` exist on the js object,
     /// then preloads all `"state:"` and `"dir:"` prefixed keys into the
-    /// in-memory cache (necessary because [`KeyValueStore`] is sync but JS
-    /// storage APIs are async).
+    /// in-memory cache (necessary because [`KeyValueStore`] is sync but js
+    /// storage apis are async).
     pub async fn new(js_storage: JsStorage) -> Result<Self, JsValue> {
         js_storage.try_lock().await.map_err(|e| {
             JsValue::from_str(&format!(
@@ -187,8 +186,8 @@ impl CachedJsStorage {
             ))
         })?;
 
-        // Validate that unlock() exists (we'll need it for shutdown).
-        // Call it, then re-acquire immediately.
+        // validate that unlock() exists (we'll need it for shutdown).
+        // call it, then re-acquire immediately.
         js_storage.unlock().await.map_err(|e| {
             JsValue::from_str(&format!(
                 "Storage must implement unlock(): {:?}",
@@ -217,10 +216,10 @@ impl CachedJsStorage {
         Ok(storage)
     }
 
-    /// Pre-load all data from JS storage into the cache.
+    /// pre-load all data from js storage into the cache.
     ///
-    /// Uses bulk `getAll()` to fetch all key-value pairs per prefix in a single
-    /// JS call, avoiding thousands of sequential WASM-JS round-trips.
+    /// uses bulk `getAll()` to fetch all key-value pairs per prefix in a single
+    /// js call, avoiding thousands of sequential wasm-js round-trips.
     async fn preload_all(&self) -> Result<(), JsValue> {
         let state_entries = self.js_storage.get_all("state:").await?;
         let dir_entries = self.js_storage.get_all("dir:").await?;
@@ -240,7 +239,6 @@ impl CachedJsStorage {
         Ok(())
     }
 
-    /// Schedule an async write to JS storage.
     fn schedule_persist(&self, key: String, value: String) {
         let js_storage = self.js_storage.clone();
         wasm_bindgen_futures::spawn_local(async move {
@@ -250,9 +248,9 @@ impl CachedJsStorage {
         });
     }
 
-    /// Insert many key-value pairs into the cache and schedule a single async
-    /// batch persist to JS storage.  Much faster than calling `set()` in a loop
-    /// because it acquires the RwLock once and spawns one `spawn_local()` task.
+    /// insert many key-value pairs into the cache and schedule a single async
+    /// batch persist to js storage.  much faster than calling `set()` in a loop
+    /// because it acquires the rwlock once and spawns one `spawn_local()` task.
     pub fn set_many(&self, entries: Vec<(String, String)>) -> Result<(), StorageError> {
         {
             let mut cache = self
@@ -275,7 +273,6 @@ impl CachedJsStorage {
         Ok(())
     }
 
-    /// Schedule an async delete from JS storage.
     fn schedule_delete(&self, key: String) {
         let js_storage = self.js_storage.clone();
         wasm_bindgen_futures::spawn_local(async move {
@@ -294,7 +291,7 @@ impl Drop for CachedJsStorage {
             if let Err(e) = js_storage.unlock().await {
                 tracing::warn!("CachedJsStorage: failed to release JS lock on drop: {:?}", e);
             }
-            // Signal waiters *after* the JS lock is released.
+            // signal waiters *after* the js lock is released.
             drop(drop_tx);
         });
     }
@@ -348,7 +345,7 @@ impl KeyValueStore for CachedJsStorage {
     }
 
     fn try_lock(&self) -> Result<bool, StorageError> {
-        // Local state only: the JS lock is held from new() for the client's lifetime.
+        // local state only: the js lock is held from new() for the client's lifetime.
         let mut locked = self
             .locked
             .write()
@@ -365,7 +362,7 @@ impl KeyValueStore for CachedJsStorage {
     }
 
     fn unlock(&self) -> Result<(), StorageError> {
-        // Local-only: the JS lock stays held for the client's lifetime.
+        // local-only: the js lock stays held for the client's lifetime.
         let mut locked = self
             .locked
             .write()

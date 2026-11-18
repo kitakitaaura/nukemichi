@@ -1,36 +1,36 @@
-//! Per-key stream isolation for `fetch`.
+//! per-key stream isolation for `fetch`.
 //!
-//! By default every stream a `TorClient` opens may share circuits, so requests
+//! by default every stream a `TorClient` opens may share circuits, so requests
 //! made seconds apart leave the same exit and can be linked by whoever answers
-//! them. A caller that passes `anonOptions.isolationKey` gets one Arti
+//! them. a caller that passes `anonOptions.isolationKey` gets one arti
 //! isolation group per distinct key: requests with the same key may share
 //! circuits; requests with different keys never do.
 //!
-//! The key is the caller's opaque label. It is never logged or sent anywhere.
+//! the key is the caller's opaque label. it is never logged or sent anywhere.
 //!
-//! A circuit is not the only thing requests could share. Each group also
-//! carries state of its own that must not cross keys — for `fetch`, its TLS
+//! a circuit is not the only thing requests could share. each group also
+//! carries state of its own that must not cross keys — for `fetch`, its tls
 //! session cache (tls.rs) — created with the group and forgotten with it.
 
 use std::collections::HashMap;
 
 use arti_client::IsolationToken;
 
-/// Longest accepted key. Keys are labels, not payloads.
+/// longest accepted key. keys are labels, not payloads.
 pub(crate) const MAX_KEY_LEN: usize = 256;
 
-/// Bound on remembered keys. Past it the map starts over: a key seen again gets
+/// bound on remembered keys. past it the map starts over: a key seen again gets
 /// a fresh group, which is still isolated from every other key.
 const MAX_KEYS: usize = 4096;
 
-/// Why an isolation key was refused.
+/// why an isolation key was refused.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum KeyError {
     Empty,
     TooLong,
 }
 
-/// One key's isolation group: its Arti isolation token, and `T`, the
+/// one key's isolation group: its arti isolation token, and `T`, the
 /// per-group state that must not be shared with any other key.
 #[derive(Clone)]
 pub(crate) struct Group<T> {
@@ -39,7 +39,7 @@ pub(crate) struct Group<T> {
     pub(crate) state: T,
 }
 
-/// Maps isolation keys to isolation groups for one client.
+/// maps isolation keys to isolation groups for one client.
 pub(crate) struct IsolationGroups<T> {
     groups: HashMap<String, Group<T>>,
 }
@@ -51,11 +51,11 @@ impl<T> Default for IsolationGroups<T> {
 }
 
 impl<T: Clone> IsolationGroups<T> {
-    /// The isolation group for `key`, created on first use with a fresh token
+    /// the isolation group for `key`, created on first use with a fresh token
     /// and `new_state()`.
     pub(crate) fn group_for(&mut self, key: &str, new_state: impl FnOnce() -> T) -> Result<Group<T>, KeyError> {
         if key.is_empty() {
-            // An empty key is almost certainly a caller bug; sharing circuits
+            // an empty key is almost certainly a caller bug; sharing circuits
             // silently would be the unsafe reading of it.
             return Err(KeyError::Empty);
         }
@@ -81,7 +81,7 @@ impl<T: Clone> IsolationGroups<T> {
 mod tests {
     use super::*;
 
-    /// A group's token, with a state that records nothing.
+    /// a group's token, with a state that records nothing.
     fn token(groups: &mut IsolationGroups<()>, key: &str) -> Result<IsolationToken, KeyError> {
         groups.group_for(key, || ()).map(|g| g.token)
     }

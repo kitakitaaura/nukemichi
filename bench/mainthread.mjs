@@ -1,6 +1,6 @@
-// Main-thread cost of running Tor in the page: long tasks (>50 ms) during
-// bootstrap and a 1 MiB download. Also checks keep-alive RTT. Chromium only
-// (longtask timing is Chromium-only).
+// main-thread cost of running tor in the page: long tasks (>50 ms) during
+// bootstrap and a 1 mib download. also checks keep-alive rtt. chromium only
+// (longtask timing is chromium-only).
 import { chromium } from 'playwright';
 const transport = process.argv[2] || 'websocket';
 const kill = setTimeout(() => { console.log('TIMEOUT'); process.exit(2); }, 300000);

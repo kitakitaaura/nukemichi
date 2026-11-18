@@ -1,6 +1,6 @@
-// Runs demo/selftest.html's Phase 0 proofs in real Safari via safaridriver
-// (WebDriver). Needs "Allow Remote Automation" (safaridriver --enable).
-// Usage: node bench/safari.mjs <webrtc|websocket> [worker|inline]
+// runs demo/selftest.html's phase 0 proofs in real safari via safaridriver
+// (webdriver). needs "allow remote automation" (safaridriver --enable).
+// usage: node bench/safari.mjs <webrtc|websocket> [worker|inline]
 import { spawn } from 'node:child_process';
 const [transport = 'webrtc', mode = 'worker'] = process.argv.slice(2);
 const PORT = 4799;

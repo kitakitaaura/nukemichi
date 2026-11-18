@@ -1,12 +1,12 @@
-//! Error types for JavaScript consumption
+//! error types for javascript consumption
 
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
 /// `e`'s message followed by each source that adds to it, joined with ": ".
 ///
-/// Arti's top-level message often stops at the category ("Protocol error while
-/// launching a data stream"); the reason, such as the exit's END reason, is
+/// arti's top-level message often stops at the category ("protocol error while
+/// launching a data stream"); the reason, such as the exit's end reason, is
 /// further down the source chain.
 pub fn with_sources(e: &dyn std::error::Error) -> String {
     let mut message = e.to_string();
@@ -23,24 +23,20 @@ pub fn with_sources(e: &dyn std::error::Error) -> String {
 }
 
 /// `kind` as `torKind` reports it: the variant's name, such as
-/// "RemoteStreamError".
+/// "remotestreamerror".
 fn tor_kind_name(kind: arti_client::ErrorKind) -> String {
     format!("{:?}", kind)
 }
 
-/// Error type exposed to JavaScript with structured error information
+/// error type exposed to javascript with structured error information
 #[derive(Debug, Clone, Serialize)]
 pub struct JsTorError {
-    /// Stable error code for programmatic handling
     pub code: String,
-    /// Error category
     pub kind: String,
-    /// Human-readable error message
     pub message: String,
-    /// Whether the operation can be retried
     pub retryable: bool,
-    /// The Tor implementation's own kind for the failure, when it came from
-    /// there: an Arti `ErrorKind` name, such as "RemoteStreamError".
+    /// the tor implementation's own kind for the failure, when it came from
+    /// there: an arti `ErrorKind` name, such as "remotestreamerror".
     #[serde(rename = "torKind", skip_serializing_if = "Option::is_none")]
     pub tor_kind: Option<String>,
 }
@@ -73,8 +69,8 @@ impl JsTorError {
         Self::new("CONNECTION", "network", message, true)
     }
 
-    /// Create an error for a failed `connect`, with the cause chain in the
-    /// message and Arti's kind for the failure as `torKind`.
+    /// create an error for a failed `connect`, with the cause chain in the
+    /// message and arti's kind for the failure as `torKind`.
     pub fn connect_failed(e: &arti_client::Error) -> Self {
         use arti_client::HasKind;
         Self {
@@ -99,14 +95,14 @@ impl JsTorError {
         Self::new("INTERNAL", "internal", message, false)
     }
 
-    /// Create an abort error (signal was set before or during the operation)
+    /// create an abort error (signal was set before or during the operation)
     pub fn aborted() -> Self {
         Self::new("ABORT", "abort", "The operation was aborted", false)
     }
 
-    /// Convert to JsValue for returning to JavaScript.
+    /// convert to jsvalue for returning to javascript.
     ///
-    /// Returns a proper `Error` instance with `code`, `kind`, and `retryable`
+    /// returns a proper `Error` instance with `code`, `kind`, and `retryable`
     /// properties (and `torKind` when there is one), so `instanceof Error`
     /// works and `.stack` is available.
     pub fn into_js_value(self) -> JsValue {
@@ -127,7 +123,7 @@ impl From<arti_client::Error> for JsTorError {
 
         let message = e.to_string();
 
-        // Map arti-client errors to our error codes using structured ErrorKind
+        // map arti-client errors to our error codes using structured errorkind
         // instead of fragile string matching on error messages.
         match e.kind() {
             ErrorKind::BootstrapRequired => Self::bootstrap(message),

@@ -1,10 +1,10 @@
-//! Opening streams through Tor, with retry on a fresh circuit, and a
-//! keep-alive pool for HTTP connections.
+//! opening streams through tor, with retry on a fresh circuit, and a
+//! keep-alive pool for http connections.
 //!
-//! Arti keeps using a circuit after its exit fails to open a stream, so the
-//! same request can fail for minutes. A [`Slot`] holds the isolation token a
+//! arti keeps using a circuit after its exit fails to open a stream, so the
+//! same request can fail for minutes. a [`Slot`] holds the isolation token a
 //! group of requests uses; when an exit-side failure happens, the slot gets a
-//! new token, which makes Arti build (or pick) a different circuit.
+//! new token, which makes arti build (or pick) a different circuit.
 
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
@@ -18,15 +18,15 @@ use crate::error::JsTorError;
 use crate::fetch::BoxedReader;
 use crate::runtime::WasmRuntime;
 
-/// Attempts per stream before giving up (1 + retries on fresh circuits).
+/// attempts per stream before giving up (1 + retries on fresh circuits).
 const MAX_ATTEMPTS: u32 = 3;
-/// Idle pooled connections older than this are dropped (servers commonly
+/// idle pooled connections older than this are dropped (servers commonly
 /// close idle keep-alive connections after 5-60 s).
 const POOL_IDLE_MS: f64 = 30_000.0;
-/// Pooled connections per origin and slot.
+/// pooled connections per origin and slot.
 const POOL_PER_KEY: usize = 4;
 
-/// The isolation token shared by a group of requests; rotated on failure.
+/// the isolation token shared by a group of requests; rotated on failure.
 #[derive(Clone)]
 pub struct Slot(Rc<Cell<IsolationToken>>);
 
@@ -45,7 +45,7 @@ impl Slot {
     }
 }
 
-/// Failures where another exit may well succeed.
+/// failures where another exit may well succeed.
 fn exit_side(kind: ErrorKind) -> bool {
     matches!(
         kind,
@@ -63,7 +63,7 @@ fn exit_side(kind: ErrorKind) -> bool {
     )
 }
 
-/// Open a Tor stream to `host:port` on the slot's circuit, rotating to a new
+/// open a tor stream to `host:port` on the slot's circuit, rotating to a new
 /// circuit on exit-side failures.
 pub async fn open_stream(
     client: &ArtiTorClient<WasmRuntime>,
@@ -92,7 +92,7 @@ pub async fn open_stream(
     Err(last.unwrap_or_else(|| JsTorError::internal("unreachable")))
 }
 
-/// Open a connection for HTTP: a Tor stream, TLS-wrapped for HTTPS. A TLS
+/// open a connection for http: a tor stream, tls-wrapped for https. a tls
 /// handshake that dies (the exit dropped us) also moves to a new circuit.
 pub async fn open_conn(
     client: &ArtiTorClient<WasmRuntime>,
@@ -116,7 +116,7 @@ pub async fn open_conn(
                 return Ok(Box::new(tls));
             }
             Err(e) => {
-                // Certificate errors are final; I/O errors mean the stream died.
+                // certificate errors are final; i/o errors mean the stream died.
                 let io_failure = e.get_ref().is_none_or(|inner| inner.downcast_ref::<futures_rustls::rustls::Error>().is_none());
                 let err = JsTorError::tls(format!("TLS handshake failed with {}: {}", host, e));
                 if !io_failure || attempt == MAX_ATTEMPTS {
@@ -134,12 +134,12 @@ thread_local! {
     static POOL: RefCell<HashMap<String, Vec<(BoxedReader, f64)>>> = RefCell::new(HashMap::new());
 }
 
-/// Pool key: scheme, host, port and the slot's current circuit token.
+/// pool key: scheme, host, port and the slot's current circuit token.
 pub fn pool_key(https: bool, host: &str, port: u16, slot: &Slot) -> String {
     format!("{}://{}:{}#{}", if https { "https" } else { "http" }, host, port, slot.id())
 }
 
-/// Take an idle connection for `key`, if one is fresh enough.
+/// take an idle connection for `key`, if one is fresh enough.
 pub fn pool_take(key: &str) -> Option<BoxedReader> {
     let now = js_sys::Date::now();
     POOL.with(|p| {
@@ -154,7 +154,7 @@ pub fn pool_take(key: &str) -> Option<BoxedReader> {
     })
 }
 
-/// Return a connection whose last response was fully read.
+/// return a connection whose last response was fully read.
 pub fn pool_put(key: String, conn: BoxedReader) {
     POOL.with(|p| {
         let mut p = p.borrow_mut();
@@ -165,7 +165,7 @@ pub fn pool_put(key: String, conn: BoxedReader) {
     });
 }
 
-/// Drop all pooled connections (on close).
+/// drop all pooled connections (on close).
 pub fn pool_clear() {
     POOL.with(|p| p.borrow_mut().clear());
 }

@@ -1,26 +1,26 @@
-//! Snowflake client tunnel: Turbo Tunnel encapsulation + KCP + smux v2.
+//! snowflake client tunnel: turbo tunnel encapsulation + kcp + smux v2.
 //!
-//! This is the client half of the protocol that the Snowflake bridge
-//! (snowflake-server) speaks. The browser only provides a *carrier*: a
+//! this is the client half of the protocol that the snowflake bridge
+//! (snowflake-server) speaks. the browser only provides a *carrier*: a
 //! reliable, ordered byte pipe to the bridge, which is either
 //!
-//! - a WebRTC data channel to a volunteer Snowflake proxy (the proxy copies
-//!   bytes to the bridge over WebSocket), or
-//! - a WebSocket straight to the bridge's WebSocket endpoint.
+//! - a webrtc data channel to a volunteer snowflake proxy (the proxy copies
+//!   bytes to the bridge over websocket), or
+//! - a websocket straight to the bridge's websocket endpoint.
 //!
-//! On top of the carrier we run, exactly as the Go client in
+//! on top of the carrier we run, exactly as the go client in
 //! `snowflake/client/lib/snowflake.go` does:
 //!
-//! 1. Turbo Tunnel preamble: 8-byte magic token, then the 8-byte ClientID.
-//! 2. Length-prefixed encapsulation of KCP packets
+//! 1. turbo tunnel preamble: 8-byte magic token, then the 8-byte clientid.
+//! 2. length-prefixed encapsulation of kcp packets
 //!    (`snowflake/common/encapsulation`).
-//! 3. KCP: conv 0, stream mode, windows 65535, nodelay(0, 0, 0, nc=1).
-//! 4. smux v2 with one stream, which carries the Tor link (TLS) bytes.
+//! 3. kcp: conv 0, stream mode, windows 65535, nodelay(0, 0, 0, nc=1).
+//! 4. smux v2 with one stream, which carries the tor link (tls) bytes.
 //!
-//! When a carrier dies (proxy went away), the driver asks JS for a new one,
-//! re-sends the preamble with the *same* ClientID, and KCP retransmits
-//! whatever was lost. The bridge re-attaches the new carrier to the existing
-//! session, so the Tor channel survives proxy churn.
+//! when a carrier dies (proxy went away), the driver asks js for a new one,
+//! re-sends the preamble with the *same* clientid, and kcp retransmits
+//! whatever was lost. the bridge re-attaches the new carrier to the existing
+//! session, so the tor channel survives proxy churn.
 
 use futures::channel::{mpsc, oneshot};
 use futures::{AsyncRead, AsyncWrite, AsyncWriteExt, FutureExt, StreamExt};
@@ -36,14 +36,14 @@ use tracing::{debug, info, warn};
 
 use crate::runtime::JsProxyStream;
 
-/// Turbo Tunnel magic token (`snowflake/common/turbotunnel/consts.go`).
+/// turbo tunnel magic token (`snowflake/common/turbotunnel/consts.go`).
 const TURBO_TOKEN: [u8; 8] = [0x12, 0x93, 0x60, 0x5d, 0x27, 0x81, 0x75, 0xf5];
 
-/// KCP window, in packets (`WindowSize` in the Go client).
+/// kcp window, in packets (`WindowSize` in the go client).
 const KCP_WINDOW: u16 = 65535;
-/// KCP tick interval in ms (Go: interval 0 is clamped to 10).
+/// kcp tick interval in ms (go: interval 0 is clamped to 10).
 const KCP_INTERVAL_MS: u32 = 10;
-/// Stop queueing into KCP once this many segments wait to be sent.
+/// stop queueing into kcp once this many segments wait to be sent.
 const KCP_MAX_WAITSND: usize = 4096;
 
 /// smux protocol constants (github.com/xtaci/smux).
@@ -54,41 +54,41 @@ const SMUX_PSH: u8 = 2;
 const SMUX_NOP: u8 = 3;
 const SMUX_UPD: u8 = 4;
 const SMUX_HDR: usize = 8;
-/// First stream id a smux client opens (nextStreamID starts at 1, += 2).
+/// first stream id a smux client opens (nextstreamid starts at 1, += 2).
 const SMUX_STREAM_ID: u32 = 3;
-/// smux's initial peer window before the first UPD (`initialPeerWindow`).
+/// smux's initial peer window before the first upd (`initialPeerWindow`).
 const SMUX_INITIAL_PEER_WINDOW: u32 = 262_144;
-/// Our advertised receive window (`StreamSize` in the Go client: 1 MiB).
+/// our advertised receive window (`StreamSize` in the go client: 1 mib).
 const SMUX_RECV_WINDOW: u32 = 1_048_576;
-/// Max payload per smux frame (`MaxFrameSize` default).
+/// max payload per smux frame (`MaxFrameSize` default).
 const SMUX_MAX_FRAME: usize = 32_768;
-/// Keepalive NOP interval (`KeepAliveInterval` default 10 s).
+/// keepalive nop interval (`KeepAliveInterval` default 10 s).
 const SMUX_KEEPALIVE_MS: f64 = 10_000.0;
 
-/// How long to keep trying to find a new carrier before giving up.
+/// how long to keep trying to find a new carrier before giving up.
 const REDIAL_BUDGET_MS: f64 = 120_000.0;
 
-/// Counters exposed to JS through `snowflakeStats()`.
+/// counters exposed to js through `snowflakeStats()`.
 #[derive(Default, Debug)]
 pub struct SnowflakeStats {
-    /// Carriers successfully opened (1 = no churn).
+    /// carriers successfully opened (1 = no churn).
     pub carriers_opened: AtomicU32,
-    /// Carriers that died while the session was alive.
+    /// carriers that died while the session was alive.
     pub carriers_lost: AtomicU32,
-    /// Redial attempts that failed.
+    /// redial attempts that failed.
     pub redial_failures: AtomicU32,
-    /// Bytes received from the bridge (Tor link bytes, after smux).
+    /// bytes received from the bridge (tor link bytes, after smux).
     pub bytes_in: AtomicU64,
-    /// Bytes sent to the bridge (Tor link bytes, before smux).
+    /// bytes sent to the bridge (tor link bytes, before smux).
     pub bytes_out: AtomicU64,
 }
 
 thread_local! {
-    /// Stats for every Snowflake session in this wasm instance.
+    /// stats for every snowflake session in this wasm instance.
     pub static STATS: Arc<SnowflakeStats> = Arc::new(SnowflakeStats::default());
 }
 
-/// Returns a JS-friendly snapshot of the Snowflake counters.
+/// returns a js-friendly snapshot of the snowflake counters.
 pub fn stats_snapshot() -> [f64; 5] {
     STATS.with(|s| {
         [
@@ -101,7 +101,7 @@ pub fn stats_snapshot() -> [f64; 5] {
     })
 }
 
-/// Something that can open a fresh carrier (calls into JS).
+/// something that can open a fresh carrier (calls into js).
 pub type CarrierDialer =
     Rc<dyn Fn() -> Pin<Box<dyn std::future::Future<Output = io::Result<JsProxyStream>>>>>;
 
@@ -109,7 +109,6 @@ fn now_ms() -> f64 {
     js_sys::Date::now()
 }
 
-// Encapsulation (snowflake/common/encapsulation)
 
 fn encapsulate(data: &[u8], out: &mut Vec<u8>) {
     let n = data.len();
@@ -127,14 +126,14 @@ fn encapsulate(data: &[u8], out: &mut Vec<u8>) {
     out.extend_from_slice(data);
 }
 
-/// Incremental decoder for the encapsulation stream.
+/// incremental decoder for the encapsulation stream.
 #[derive(Default)]
 struct Decapsulator {
     buf: Vec<u8>,
 }
 
 impl Decapsulator {
-    /// Feed bytes; returns complete data packets (padding is dropped).
+    /// feed bytes; returns complete data packets (padding is dropped).
     fn feed(&mut self, bytes: &[u8]) -> io::Result<Vec<Vec<u8>>> {
         self.buf.extend_from_slice(bytes);
         let mut packets = Vec::new();
@@ -178,9 +177,8 @@ impl Decapsulator {
     }
 }
 
-// KCP output sink
 
-/// KCP writes each outgoing packet here; the driver drains and encapsulates.
+/// kcp writes each outgoing packet here; the driver drains and encapsulates.
 #[derive(Clone, Default)]
 struct PacketSink(Rc<RefCell<VecDeque<Vec<u8>>>>);
 
@@ -194,18 +192,17 @@ impl Write for PacketSink {
     }
 }
 
-// The stream handed to Arti
 
-/// Shared state between the [`SnowflakeStream`] and its driver task.
+/// shared state between the [`SnowflakeStream`] and its driver task.
 #[derive(Default)]
 struct Shared {
-    /// Bytes the application has consumed (for smux UPD).
+    /// bytes the application has consumed (for smux upd).
     consumed: AtomicU32,
-    /// Set by either side to tear down.
+    /// set by either side to tear down.
     closed: AtomicBool,
 }
 
-/// One smux stream over Snowflake, carrying the Tor link.
+/// one smux stream over snowflake, carrying the tor link.
 pub struct SnowflakeStream {
     rx: mpsc::UnboundedReceiver<io::Result<Vec<u8>>>,
     tx: mpsc::UnboundedSender<Vec<u8>>,
@@ -260,8 +257,8 @@ impl AsyncWrite for SnowflakeStream {
         if self.shared.closed.load(Ordering::Relaxed) {
             return Poll::Ready(Err(io::Error::new(io::ErrorKind::BrokenPipe, "snowflake session closed")));
         }
-        // The driver enforces the smux window and KCP queue limits; Tor's own
-        // flow control (SENDME) bounds how much can be outstanding here.
+        // the driver enforces the smux window and kcp queue limits; tor's own
+        // flow control (sendme) bounds how much can be outstanding here.
         self.tx
             .unbounded_send(buf.to_vec())
             .map_err(|_| io::Error::new(io::ErrorKind::BrokenPipe, "snowflake driver gone"))?;
@@ -276,7 +273,6 @@ impl AsyncWrite for SnowflakeStream {
     }
 }
 
-// Driver
 
 struct Driver {
     dial: CarrierDialer,
@@ -284,15 +280,15 @@ struct Driver {
     kcp: kcp::Kcp<PacketSink>,
     sink: PacketSink,
     decap: Decapsulator,
-    /// Reassembly buffer for smux frames coming out of KCP.
+    /// reassembly buffer for smux frames coming out of kcp.
     smux_in: Vec<u8>,
-    /// App bytes waiting for smux window / KCP queue space.
+    /// app bytes waiting for smux window / kcp queue space.
     pending_out: VecDeque<u8>,
     /// smux v2 send-side flow control.
     num_written: u32,
     peer_consumed: u32,
     peer_window: u32,
-    /// Last `consumed` value we reported with UPD.
+    /// last `consumed` value we reported with upd.
     reported_consumed: u32,
     last_keepalive: f64,
     to_app: mpsc::UnboundedSender<io::Result<Vec<u8>>>,
@@ -302,7 +298,7 @@ struct Driver {
 
 type CarrierWriter = futures::io::WriteHalf<JsProxyStream>;
 
-/// Messages from the carrier reader task.
+/// messages from the carrier reader task.
 enum CarrierEvent {
     Data(Vec<u8>),
     Closed(Option<io::Error>),
@@ -326,7 +322,7 @@ impl Driver {
             .map_err(|e| io::Error::other(format!("kcp send: {e:?}")))
     }
 
-    /// Move app bytes into smux PSH frames as window and KCP queue allow.
+    /// move app bytes into smux psh frames as window and kcp queue allow.
     fn pump_out(&mut self) -> io::Result<()> {
         while !self.pending_out.is_empty() && self.kcp.wait_snd() < KCP_MAX_WAITSND {
             let inflight = self.num_written.wrapping_sub(self.peer_consumed);
@@ -344,7 +340,7 @@ impl Driver {
         Ok(())
     }
 
-    /// Pull reassembled bytes out of KCP and parse smux frames.
+    /// pull reassembled bytes out of kcp and parse smux frames.
     fn pump_in(&mut self) -> io::Result<()> {
         let mut tmp = vec![0u8; 65536];
         loop {
@@ -385,7 +381,7 @@ impl Driver {
         Ok(())
     }
 
-    /// Send window updates and keepalives as needed.
+    /// send window updates and keepalives as needed.
     fn housekeeping(&mut self) -> io::Result<()> {
         let consumed = self.shared.consumed.load(Ordering::Relaxed);
         if consumed.wrapping_sub(self.reported_consumed) >= SMUX_RECV_WINDOW / 4 {
@@ -405,7 +401,7 @@ impl Driver {
         Ok(())
     }
 
-    /// Run KCP's clock and return encapsulated output for the carrier.
+    /// run kcp's clock and return encapsulated output for the carrier.
     fn tick(&mut self) -> io::Result<Vec<u8>> {
         self.kcp
             .update(now_ms() as u64 as u32)
@@ -417,7 +413,7 @@ impl Driver {
         Ok(out)
     }
 
-    /// Open a carrier and send the Turbo Tunnel preamble. Retries until the
+    /// open a carrier and send the turbo tunnel preamble. retries until the
     /// redial budget is spent.
     async fn open_carrier(
         &self,
@@ -443,7 +439,7 @@ impl Driver {
         }
     }
 
-    /// Send the preamble on a fresh carrier and start its reader task.
+    /// send the preamble on a fresh carrier and start its reader task.
     async fn attach(
         &self,
         carrier: JsProxyStream,
@@ -492,7 +488,7 @@ impl Driver {
 
     async fn run_inner(&mut self, from_app: &mut mpsc::UnboundedReceiver<Vec<u8>>) -> io::Result<()> {
         let (mut writer, mut events, mut stop) = self.open_carrier().await?;
-        // smux SYN for our single stream.
+        // smux syn for our single stream.
         let syn = Self::smux_frame(SMUX_SYN, SMUX_STREAM_ID, &[]);
         self.kcp_send(&syn)?;
 
@@ -526,7 +522,7 @@ impl Driver {
                     _ = timer => {}
                 }
             }
-            // Drain anything else already queued without waiting.
+            // drain anything else already queued without waiting.
             while let Ok(d) = from_app.try_recv() {
                 self.pending_out.extend(d);
             }
@@ -551,14 +547,14 @@ impl Driver {
             if !out.is_empty() {
                 if let Err(e) = writer.write_all(&out).await {
                     debug!("snowflake: carrier write failed: {e}");
-                    // The reader task will report the close; KCP retransmits.
+                    // the reader task will report the close; kcp retransmits.
                 }
             }
         }
     }
 }
 
-/// Start a Snowflake session and return the stream for the Tor link.
+/// start a snowflake session and return the stream for the tor link.
 pub async fn connect(dial: CarrierDialer) -> io::Result<SnowflakeStream> {
     let mut client_id = [0u8; 8];
     getrandom_03::fill(&mut client_id).map_err(|e| io::Error::other(format!("rng: {e}")))?;
@@ -567,7 +563,7 @@ pub async fn connect(dial: CarrierDialer) -> io::Result<SnowflakeStream> {
     let mut kcp = kcp::Kcp::new_stream(0, sink.clone());
     kcp.set_wndsize(KCP_WINDOW, KCP_WINDOW);
     kcp.set_nodelay(false, 0, 0, true);
-    // Never declare the link dead on retransmit count: carriers come and go.
+    // never declare the link dead on retransmit count: carriers come and go.
     kcp.set_maximum_resend_times(u32::MAX);
 
     let (to_app, rx) = mpsc::unbounded();
@@ -608,10 +604,10 @@ mod tests {
             let data: Vec<u8> = (0..n).map(|i| i as u8).collect();
             let mut out = Vec::new();
             encapsulate(&data, &mut out);
-            // Add a padding frame of 5 bytes (prefix 0x05 + 5 bytes).
+            // add a padding frame of 5 bytes (prefix 0x05 + 5 bytes).
             out.extend_from_slice(&[0x05, 0, 0, 0, 0, 0]);
             let mut d = Decapsulator::default();
-            // Feed byte by byte to exercise partial frames.
+            // feed byte by byte to exercise partial frames.
             let mut got = Vec::new();
             for b in &out {
                 got.extend(d.feed(std::slice::from_ref(b)).unwrap());
@@ -622,7 +618,7 @@ mod tests {
 
     #[test]
     fn encapsulation_prefix_matches_go() {
-        // Values from snowflake/common/encapsulation/encapsulation_test.go.
+        // values from snowflake/common/encapsulation/encapsulation_test.go.
         let mut out = Vec::new();
         encapsulate(&[0u8; 0], &mut out);
         assert_eq!(out, vec![0x80]);

@@ -1,4 +1,4 @@
-// Debug: why does the background consensus refresh fail after bootstrap?
+// debug: why does the background consensus refresh fail after bootstrap?
 import { chromium } from 'playwright';
 const kill = setTimeout(() => { console.log('TIMEOUT'); process.exit(2); }, 200000);
 const b = await chromium.launch(); const p = await b.newPage();

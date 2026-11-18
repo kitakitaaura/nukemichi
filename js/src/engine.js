@@ -1,5 +1,5 @@
-// The Tor engine: loads the wasm, builds an Arti client that reaches Tor via
-// Snowflake, and exposes fetch/connect. Runs in a dedicated worker (default)
+// the tor engine: loads the wasm, builds an arti client that reaches tor via
+// snowflake, and exposes fetch/connect. runs in a dedicated worker (default)
 // or on the main thread.
 
 import init, { init as initLogging, setLogCallback, setLogLevel, TorClient, TorClientOptions, snowflakeStats, BrotliDecoder } from '../pkg/nukemichi.js';
@@ -8,7 +8,7 @@ import { IndexedDBStorage, MemoryStorage } from './storage.js';
 
 let wasmReady = null;
 
-// Content decoding runs where the wasm lives (the worker by default).
+// content decoding runs where the wasm lives (the worker by default).
 
 function nativeFormat(...names) {
   for (const n of names) { try { new DecompressionStream(n); return n; } catch {} }
@@ -80,7 +80,7 @@ export async function createEngine(o) {
   if (o.clearStorage) await store.clear();
   options = options.withStorage(store);
   for (const name of o.bridges ?? ['snowflake-01', 'snowflake-02']) {
-    // Direct-WebSocket mode can only reach bridges that publish an endpoint.
+    // direct-websocket mode can only reach bridges that publish an endpoint.
     if (o.transport === 'websocket' && !BRIDGES[name].websocket) continue;
     options = options.withSnowflakeBridge(BRIDGES[name].line);
   }

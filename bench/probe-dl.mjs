@@ -1,4 +1,4 @@
-// Which ~1 MiB test files are reachable through Tor exits? 3 circuits each.
+// which ~1 mib test files are reachable through tor exits? 3 circuits each.
 import { chromium } from 'playwright';
 const kill = setTimeout(() => { console.log('TIMEOUT'); process.exit(2); }, 900000);
 const b = await chromium.launch(); const p = await b.newPage();

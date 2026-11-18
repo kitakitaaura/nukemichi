@@ -1,28 +1,28 @@
-//! A tor-rtcompat `Runtime` for the browser.
+//! a tor-rtcompat `Runtime` for the browser.
 //!
-//! Blocking operations panic (wasm has no threads), every connection goes
-//! through a JS connect function or Snowflake, and relay TLS is rustls with ring.
+//! blocking operations panic (wasm has no threads), every connection goes
+//! through a js connect function or snowflake, and relay tls is rustls with ring.
 
-/// Makes a `!Send` future `Send` via `SendWrapper`; wasm has one thread.
+/// makes a `!Send` future `Send` via `SendWrapper`; wasm has one thread.
 struct SendFut<F>(send_wrapper::SendWrapper<F>);
 
 impl<F: Future> Future for SendFut<F> {
     type Output = F::Output;
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        // SAFETY: We don't move F after pinning. SendWrapper::deref_mut gives &mut F.
+        // safety: we don't move f after pinning. sendwrapper::deref_mut gives &mut f.
         let inner = unsafe { self.map_unchecked_mut(|s| &mut *s.0) };
         inner.poll(cx)
     }
 }
 
-// Moved out of the arti fork's tor-rtcompat::wasm; it uses only public API.
-// These traits are re-exported at the tor_rtcompat crate root...
+// moved out of the arti fork's tor-rtcompat::wasm; it uses only public api.
+// these traits are re-exported at the tor_rtcompat crate root...
 use tor_rtcompat::{
     Blocking, CertifiedConn, CoarseInstant, CoarseTimeProvider, NetStreamListener,
     NetStreamProvider, RealCoarseTimeProvider, SleepProvider, StreamOps, TcpConnectOptions,
     TcpListenOptions, TlsProvider, UdpProvider, UdpSocket, UnixConnectOptions, UnixListenOptions,
 };
-// ...while these TLS traits are only reachable via the public `tls` submodule.
+// ...while these tls traits are only reachable via the public `tls` submodule.
 use tor_rtcompat::tls::{TlsAcceptorSettings, TlsConnector};
 use std::borrow::Cow;
 use async_trait::async_trait;
@@ -39,18 +39,18 @@ use web_time_compat::Instant;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tor_general_addr::unix;
 
-/// The browser runtime. Connections go through [`set_connect_fn`](WasmRuntime::set_connect_fn)
-/// or Snowflake; there is no blocking, UDP or filesystem.
+/// the browser runtime. connections go through [`set_connect_fn`](wasmruntime::set_connect_fn)
+/// or snowflake; there is no blocking, udp or filesystem.
 #[derive(Clone)]
 pub struct WasmRuntime {
     coarse: RealCoarseTimeProvider,
-    /// Optional JS callback for connecting to relay addresses.
-    /// Signature: `(addr: string) => Promise<{readable, writable, close}>`
+    /// optional js callback for connecting to relay addresses.
+    /// signature: `(addr: string) => Promise<{readable, writable, close}>`
     connect_fn: Option<js_sys::Function>,
-    /// Bridge addresses reached through Snowflake.
-    /// Connections to these are wrapped in Turbo Tunnel + KCP + smux, and the
-    /// JS connect function is asked for a *carrier* with the target
-    /// `"snowflake:<addr>"` (a WebRTC data channel or a WebSocket).
+    /// bridge addresses reached through snowflake.
+    /// connections to these are wrapped in turbo tunnel + kcp + smux, and the
+    /// js connect function is asked for a *carrier* with the target
+    /// `"snowflake:<addr>"` (a webrtc data channel or a websocket).
     snowflake_addrs: Arc<Vec<SocketAddr>>,
 }
 
@@ -75,21 +75,21 @@ impl WasmRuntime {
         }
     }
 
-    /// Set a JS callback for opening socket connections to relay addresses.
+    /// set a js callback for opening socket connections to relay addresses.
     ///
-    /// The callback receives a target address string (e.g. `"198.51.100.1:9001"`)
+    /// the callback receives a target address string (e.g. `"198.51.100.1:9001"`)
     /// and must return a `Promise` of `{ readable, writable, close() }`.
     pub fn set_connect_fn(&mut self, f: js_sys::Function) {
         self.connect_fn = Some(f);
     }
 
-    /// Route connections to these bridge addresses through Snowflake.
+    /// route connections to these bridge addresses through snowflake.
     pub fn set_snowflake_addrs(&mut self, addrs: Vec<SocketAddr>) {
         self.snowflake_addrs = Arc::new(addrs);
     }
 }
 
-/// Call the JS connect function with `target` and wrap the socket it returns.
+/// call the js connect function with `target` and wrap the socket it returns.
 async fn js_connect(connect_fn: js_sys::Function, target: String) -> IoResult<JsProxyStream> {
     let promise = connect_fn
         .call1(&wasm_bindgen::JsValue::NULL, &wasm_bindgen::JsValue::from_str(&target))
@@ -101,12 +101,12 @@ async fn js_connect(connect_fn: js_sys::Function, target: String) -> IoResult<Js
     JsProxyStream::wrap(socket)
 }
 
-/// A stream from [`WasmRuntime`]: a plain JS socket, or Snowflake.
+/// a stream from [`WasmRuntime`]: a plain js socket, or snowflake.
 #[derive(Debug)]
 pub enum NetStream {
-    /// A JS byte pipe (not used for relays when bridges are on).
+    /// a js byte pipe (not used for relays when bridges are on).
     Js(JsProxyStream),
-    /// A Snowflake session to a bridge.
+    /// a snowflake session to a bridge.
     Snowflake(crate::snowflake::SnowflakeStream),
 }
 
@@ -146,7 +146,7 @@ impl StreamOps for NetStream {
     }
 }
 
-/// A sleep future for WASM using gloo-timers.
+/// a sleep future for wasm using gloo-timers.
 pub struct WasmSleepFuture {
     inner: send_wrapper::SendWrapper<gloo_timers::future::TimeoutFuture>,
 }
@@ -164,14 +164,14 @@ impl Future for WasmSleepFuture {
     type Output = ();
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        // SAFETY: We never move the inner future after pinning.
-        // Deref through SendWrapper to get the TimeoutFuture.
+        // safety: we never move the inner future after pinning.
+        // deref through sendwrapper to get the timeoutfuture.
         let inner = unsafe { self.map_unchecked_mut(|s| &mut *s.inner) };
         inner.poll(cx)
     }
 }
 
-// WasmSleepFuture is Send because the inner future is wrapped in SendWrapper.
+// wasmsleepfuture is send because the inner future is wrapped in sendwrapper.
 
 impl SleepProvider for WasmRuntime {
     type SleepFuture = WasmSleepFuture;
@@ -185,7 +185,7 @@ impl SleepProvider for WasmRuntime {
     }
 
     fn wallclock(&self) -> SystemTime {
-        // Use Date.now() for WASM wall-clock time
+        // use date.now() for wasm wall-clock time
         let millis = js_sys::Date::now();
         UNIX_EPOCH + Duration::from_millis(millis as u64)
     }
@@ -230,7 +230,7 @@ impl Blocking for WasmRuntime {
     }
 }
 
-/// Stub thread handle that will never be created (spawn_blocking panics).
+/// stub thread handle that will never be created (spawn_blocking panics).
 pub struct StubThreadHandle<T> {
     _phantom: std::marker::PhantomData<T>,
 }
@@ -239,35 +239,35 @@ impl<T: Send + 'static> Future for StubThreadHandle<T> {
     type Output = T;
 
     fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
-        // This will never be called because spawn_blocking panics
+        // this will never be called because spawn_blocking panics
         unreachable!("StubThreadHandle should never be polled")
     }
 }
 
-/// A stream backed by a JS socket object exposing WHATWG streams.
+/// a stream backed by a js socket object exposing whatwg streams.
 ///
-/// The JS socket (see `js/src/pipe.js`) must expose a
+/// the js socket (see `js/src/pipe.js`) must expose a
 /// `readable` (`ReadableStream<Uint8Array>`), a `writable`
-/// (`WritableStream<Uint8Array>`), and a `close()` method. Data is pulled and
+/// (`WritableStream<Uint8Array>`), and a `close()` method. data is pulled and
 /// pushed one chunk at a time so backpressure propagates end to end: arti only
 /// pulls from the network when it reads, and writes wait for the sink to drain.
 pub struct JsProxyStream {
     socket: send_wrapper::SendWrapper<wasm_bindgen::JsValue>,
-    /// Reader acquired from `socket.readable`.
+    /// reader acquired from `socket.readable`.
     reader: send_wrapper::SendWrapper<web_sys::ReadableStreamDefaultReader>,
-    /// Writer acquired from `socket.writable`.
+    /// writer acquired from `socket.writable`.
     writer: send_wrapper::SendWrapper<web_sys::WritableStreamDefaultWriter>,
-    /// In-flight `reader.read()` promise, held across polls.
+    /// in-flight `reader.read()` promise, held across polls.
     pending_read: Option<send_wrapper::SendWrapper<wasm_bindgen_futures::JsFuture>>,
-    /// Leftover bytes from a chunk that didn't fit the caller's buffer.
+    /// leftover bytes from a chunk that didn't fit the caller's buffer.
     read_buf: Vec<u8>,
-    /// Set once the read side has seen EOF (or errored).
+    /// set once the read side has seen eof (or errored).
     read_done: bool,
-    /// In-flight `writer.write()`/`writer.close()` promise, held across polls.
+    /// in-flight `writer.write()`/`writer.close()` promise, held across polls.
     pending_write: Option<send_wrapper::SendWrapper<wasm_bindgen_futures::JsFuture>>,
-    /// Set once poll_close has issued `writer.close()`.
+    /// set once poll_close has issued `writer.close()`.
     write_closing: bool,
-    /// Set once the write side is fully closed.
+    /// set once the write side is fully closed.
     write_closed: bool,
 }
 
@@ -278,7 +278,7 @@ impl Debug for JsProxyStream {
 }
 
 impl JsProxyStream {
-    /// Wrap a JS socket that exposes `readable`, `writable`, and `close()`.
+    /// wrap a js socket that exposes `readable`, `writable`, and `close()`.
     pub(crate) fn wrap(socket: wasm_bindgen::JsValue) -> IoResult<Self> {
         use wasm_bindgen::JsCast;
 
@@ -311,7 +311,6 @@ impl JsProxyStream {
         })
     }
 
-    /// Call `socket.close()`.
     fn js_close(&self) -> IoResult<()> {
         use wasm_bindgen::JsCast;
         let close_fn = js_sys::Reflect::get(&self.socket, &"close".into())
@@ -326,7 +325,7 @@ impl JsProxyStream {
 
 impl Drop for JsProxyStream {
     fn drop(&mut self) {
-        // Cancel the reader, then close. cancel() rejects on an already-errored
+        // cancel the reader, then close. cancel() rejects on an already-errored
         // stream (the usual teardown order), so await it to keep that handled.
         wasm_bindgen_futures::spawn_local({
             let cancel = self.reader.cancel();
@@ -336,7 +335,7 @@ impl Drop for JsProxyStream {
     }
 }
 
-// JsProxyStream is Send/Sync because JS types are wrapped in SendWrapper.
+// jsproxystream is send/sync because js types are wrapped in sendwrapper.
 
 impl AsyncRead for JsProxyStream {
     fn poll_read(
@@ -347,7 +346,7 @@ impl AsyncRead for JsProxyStream {
         use wasm_bindgen::JsCast;
         let this = self.get_mut();
 
-        // Serve leftover bytes from a previous oversized chunk first.
+        // serve leftover bytes from a previous oversized chunk first.
         if !this.read_buf.is_empty() {
             let len = buf.len().min(this.read_buf.len());
             buf[..len].copy_from_slice(&this.read_buf[..len]);
@@ -359,7 +358,7 @@ impl AsyncRead for JsProxyStream {
         }
 
         loop {
-            // Pull one chunk only when arti reads: that carries backpressure upstream.
+            // pull one chunk only when arti reads: that carries backpressure upstream.
             if this.pending_read.is_none() {
                 let promise = this.reader.read();
                 this.pending_read =
@@ -401,7 +400,7 @@ impl AsyncRead for JsProxyStream {
                     };
                     let data = arr.to_vec();
                     if data.is_empty() {
-                        // Empty chunk — request the next one.
+                        // empty chunk — request the next one.
                         continue;
                     }
                     let len = buf.len().min(data.len());
@@ -422,9 +421,9 @@ impl AsyncRead for JsProxyStream {
 }
 
 impl JsProxyStream {
-    /// Poll the in-flight write/close promise, if any. Returns `Pending` while
+    /// poll the in-flight write/close promise, if any. returns `Pending` while
     /// it is outstanding — this is what backpressures the writer against a slow
-    /// sink. Clears it and returns `Ready(Ok)` once it resolves.
+    /// sink. clears it and returns `Ready(Ok)` once it resolves.
     fn poll_pending_write(&mut self, cx: &mut Context<'_>) -> Poll<IoResult<()>> {
         if let Some(fut) = self.pending_write.as_mut() {
             match Pin::new(&mut **fut).poll(cx) {
@@ -447,7 +446,7 @@ impl AsyncWrite for JsProxyStream {
         buf: &[u8],
     ) -> Poll<IoResult<usize>> {
         let this = self.get_mut();
-        // Wait for the previous write to be accepted before sending more; this
+        // wait for the previous write to be accepted before sending more; this
         // reflects the sink's backpressure back to arti.
         match this.poll_pending_write(cx) {
             Poll::Pending => return Poll::Pending,
@@ -480,7 +479,7 @@ impl AsyncWrite for JsProxyStream {
                 return Poll::Ready(Ok(()));
             }
             if !this.write_closing {
-                // Issue writer.close() (sends the FIN); loop to await it.
+                // issue writer.close() (sends the fin); loop to await it.
                 let promise = this.writer.close();
                 this.pending_write =
                     Some(send_wrapper::SendWrapper::new(wasm_bindgen_futures::JsFuture::from(promise)));
@@ -500,15 +499,15 @@ impl StreamOps for JsProxyStream {
     }
 }
 
-/// A no-op [`StreamOps`] handle (tor-rtcompat's `NoOpStreamOpsHandle` is
+/// a no-op [`StreamOps`] handle (tor-rtcompat's `NoOpStreamOpsHandle` is
 /// `#[non_exhaustive]`, so it can't be built here).
 #[derive(Clone, Copy, Debug)]
 struct NoOpHandle;
 
 impl StreamOps for NoOpHandle {}
 
-/// A stub listener that never accepts connections.
-/// WASM does not support listening on sockets.
+/// a stub listener that never accepts connections.
+/// wasm does not support listening on sockets.
 #[non_exhaustive]
 pub struct StubListener;
 
@@ -551,7 +550,7 @@ impl NetStreamProvider<SocketAddr> for WasmRuntime {
     type ConnectOptions = TcpConnectOptions;
     type ListenOptions = TcpListenOptions;
 
-    // Socket options can't be applied to JS-proxied connections, so they are
+    // socket options can't be applied to js-proxied connections, so they are
     // ignored here, as with listen() below.
     async fn connect(
         &self,
@@ -626,13 +625,13 @@ impl NetStreamProvider<unix::SocketAddr> for WasmRuntime {
     }
 }
 
-/// Relay TLS connector (rustls).
+/// relay tls connector (rustls).
 ///
-/// Configured for Tor's requirements:
-/// - Skips certificate verification (Tor validates via CERTS cells instead)
-/// - Verifies TLS handshake signatures (proves key possession)
+/// configured for tor's requirements:
+/// - skips certificate verification (tor validates via certs cells instead)
+/// - verifies tls handshake signatures (proves key possession)
 pub struct WasmTlsConnector {
-    /// The underlying TLS connector.
+    /// the underlying tls connector.
     connector: futures_rustls::TlsConnector,
 }
 
@@ -661,10 +660,10 @@ impl Default for WasmTlsConnector {
     }
 }
 
-/// A certificate verifier that skips WebPKI validation.
+/// a certificate verifier that skips webpki validation.
 ///
-/// Tor relays use self-signed certificates; authentication happens via CERTS
-/// cells in the Tor protocol. We still verify TLS handshake signatures to
+/// tor relays use self-signed certificates; authentication happens via certs
+/// cells in the tor protocol. we still verify tls handshake signatures to
 /// prove the server possesses the key in its certificate.
 #[derive(Debug)]
 pub struct TorCertVerifier(futures_rustls::rustls::crypto::WebPkiSupportedAlgorithms);
@@ -678,7 +677,7 @@ impl futures_rustls::rustls::client::danger::ServerCertVerifier for TorCertVerif
         _ocsp_response: &[u8],
         _now: rustls_pki_types::UnixTime,
     ) -> Result<futures_rustls::rustls::client::danger::ServerCertVerified, futures_rustls::rustls::Error> {
-        // Skip cert validation — Tor validates via CERTS cells
+        // skip cert validation — tor validates via certs cells
         Ok(futures_rustls::rustls::client::danger::ServerCertVerified::assertion())
     }
 
@@ -729,7 +728,7 @@ where
     }
 }
 
-/// Uninhabited server-side TLS type (wasm has no TLS server). Mirrors
+/// uninhabited server-side tls type (wasm has no tls server). mirrors
 /// `UnimplementedTls`, which is not compiled for wasm.
 #[derive(Clone, Debug)]
 pub struct WasmUnimplementedTls(void::Void);
@@ -806,8 +805,8 @@ where
     }
 
     fn tls_acceptor(&self, _settings: TlsAcceptorSettings) -> IoResult<Self::Acceptor> {
-        // tor-rtcompat's TlsServerUnsupported error type can't be constructed
-        // from outside that crate, so return an equivalent io::Error directly.
+        // tor-rtcompat's tlsserverunsupported error type can't be constructed
+        // from outside that crate, so return an equivalent io::error directly.
         Err(io::Error::new(
             io::ErrorKind::Unsupported,
             "WasmRuntime does not support running as a TLS server",
@@ -819,7 +818,7 @@ where
     }
 }
 
-/// Local wrapper for `futures_rustls`'s client stream, so this crate can
+/// local wrapper for `futures_rustls`'s client stream, so this crate can
 /// implement [`StreamOps`] and [`CertifiedConn`] for it (orphan rule).
 pub struct WasmTlsStream<S>(futures_rustls::client::TlsStream<S>);
 
@@ -881,7 +880,7 @@ where
     }
 }
 
-/// A stub UDP socket that always returns errors.
+/// a stub udp socket that always returns errors.
 #[non_exhaustive]
 pub struct StubUdpSocket;
 

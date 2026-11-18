@@ -1,8 +1,8 @@
-// Phase 2: reliability over a long session (default 30 min).
-// One small request every 20 s (check.torproject.org/api/ip, ~36 bytes) plus
-// one raw TCP echo every 60 s. Records failures, latency, the exit IP (to see
-// circuit changes), and Snowflake carrier churn (opened / lost / redial).
-// Usage: node bench/soak.mjs <chromium> <webrtc|websocket> [minutes] > bench/results/soak-<t>.json
+// phase 2: reliability over a long session (default 30 min).
+// one small request every 20 s (check.torproject.org/api/ip, ~36 bytes) plus
+// one raw tcp echo every 60 s. records failures, latency, the exit ip (to see
+// circuit changes), and snowflake carrier churn (opened / lost / redial).
+// usage: node bench/soak.mjs <chromium> <webrtc|websocket> [minutes] > bench/results/soak-<t>.json
 import { chromium, firefox, webkit } from 'playwright';
 const [engineName = 'chromium', transport = 'webrtc', minutesArg = '30'] = process.argv.slice(2);
 const bt = { chromium, firefox, webkit }[engineName];

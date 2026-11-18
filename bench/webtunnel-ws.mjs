@@ -1,4 +1,4 @@
-// Can a browser WebSocket talk to a WebTunnel server? Runs WebTunnel's own
+// can a browser websocket talk to a webtunnel server? runs webtunnel's own
 // httpupgrade.Server (local echo, scratch/wtecho) and tries from 3 engines.
 import { chromium, firefox, webkit } from 'playwright';
 for (const [name, bt] of Object.entries({ chromium, firefox, webkit })) {
