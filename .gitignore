@@ -1,6 +1,8 @@
 bench/node_modules
 bench/results/raw/
-js/pkg/
+js/pkg/*
+!js/pkg/nukemichi.js
+!js/pkg/nukemichi_bg.wasm
 node_modules/
 target/
 anti-slop/
